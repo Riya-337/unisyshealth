@@ -1,0 +1,12 @@
+{
+  "_comment": "backend: 'sentinel' (SSHA, zero-cloud) | 'telegram' (phone only) | 'dual' (both) | 'console' (tests only)",
+  "backend": "dual",
+  "sentinel": {
+    "_comment": "SentinelNotifier — self-hosted SSHA. Alerts go to server console + logs/alert_queue.jsonl and admin dashboard."
+  },
+  "telegram": {
+    "_comment": "Requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars (set in .env).",
+    "bot_token_env": "TELEGRAM_BOT_TOKEN",
+    "chat_id_env": "TELEGRAM_CHAT_ID"
+  }
+}

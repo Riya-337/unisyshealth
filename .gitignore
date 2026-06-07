@@ -1,0 +1,50 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets — NEVER commit these
+config/.chain_key
+.env
+*.env
+
+# macOS
+.DS_Store
+
+# Runtime logs & data (generated at runtime)
+logs/
+data/snapshots/
+data/audit_chain.json
+data/audit_chain_backup.json
+data/audit_chain_pre_hardening.json
+data/audit_chain.json.tmp
+retraining/retraining_queue.json
+*.db
+
+# Node / frontend build
+webapp/node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend_backup.zip
+
+# ML model backups (keep trained models, skip backups)
+models/backup_*/
+
+# Context / scratch
+context/
+
+# Cryptographic runtime secrets
+config/pseudonym_salt.bin
+
+# Runtime state (auto-generated, changes every run)
+config/active_emergencies.json
+config/badge_events.json
+
+# Root-level runtime log files
+logs_dashboard.txt
+logs_frontend.txt
+logs_sentinel.txt
+logs_webapp.txt

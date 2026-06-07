@@ -1,0 +1,80 @@
+{
+  "admin": {
+    "password": "pbkdf2:sha256:260000:5bf58d6c58be0a36ff643b782d1747e6:1619984b3bf318b12aa8b4acb215d7571c20eee7bd2c4602e50d44e2421ff20d",
+    "role": "admin",
+    "status": "approved",
+    "access_code": null
+  },
+  "test_doctor": {
+    "password": "password123",
+    "role": "user",
+    "status": "rejected",
+    "access_code": null
+  },
+  "Riya": {
+    "password": "Riya@1234",
+    "role": "user",
+    "status": "approved",
+    "access_code": "817665"
+  },
+  "testuser": {
+    "password": "pass123",
+    "role": "user",
+    "status": "rejected",
+    "access_code": null
+  },
+  "xyz": {
+    "password": "pass123",
+    "role": "user",
+    "status": "approved",
+    "access_code": "393069"
+  },
+  "riya": {
+    "password": "riya1234",
+    "role": "user",
+    "status": "approved",
+    "access_code": "316081"
+  },
+  "riya1234": {
+    "password": "riya1234",
+    "role": "user",
+    "status": "approved",
+    "access_code": "989009"
+  },
+  "shreyagupta1146@gmail.com": {
+    "password": "Shreya1$",
+    "role": "user",
+    "status": "approved",
+    "access_code": "788007"
+  },
+  "chakradhar Kudupudi": {
+    "password": "0assword",
+    "role": "user",
+    "status": "approved",
+    "access_code": "126483"
+  },
+  "xxxx": {
+    "password": "pbkdf2:sha256:260000:85ec646e77e485513f3ae901d20a797b:074684d4a14500f2082297036e69153e98b3e003442b9f311f6d8e2b1d072085",
+    "role": "user",
+    "status": "approved",
+    "access_code": "780839",
+    "requested_at": "2026-06-07T16:07:40.821014+00:00",
+    "request_ip_token": "0eaf2188c8868645"
+  },
+  "shreya": {
+    "password": "pbkdf2:sha256:260000:598f4aa5f468c388e50a135bef8c3ccc:53f924b3bf43937c3a2e068c086d19c409e2f6fe5407fcc0c4e8e3cee70f303c",
+    "role": "user",
+    "status": "approved",
+    "access_code": "214555",
+    "requested_at": "2026-06-07T16:27:04.981444+00:00",
+    "request_ip_token": "0eaf2188c8868645"
+  },
+  "shreya2": {
+    "password": "pbkdf2:sha256:260000:b7f0129306fc4c1ac8b711897ed68c3d:6edb709fc3e39049bd81ef23acc36f4c2b12a5bcb748ee11252ab397434a2f00",
+    "role": "user",
+    "status": "approved",
+    "access_code": "921430",
+    "requested_at": "2026-06-07T16:30:13.159875+00:00",
+    "request_ip_token": "0eaf2188c8868645"
+  }
+}
