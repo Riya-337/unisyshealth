@@ -254,7 +254,8 @@ type Stage = "login" | "otp" | "granted" | "suspended";function LoginPage() {
           setStage("otp");
 
           if (data.is_admin) {
-            pushLog("WARN", "Risk-adaptive MFA: Dynamic OTP written to logs/logs_dashboard.txt (SSHA).");
+            pushLog("WARN", "Risk-adaptive MFA: Dynamic OTP written to logs/logs_dashboard.txt (Sentinel MFA).");
+
           } else {
             pushLog("INFO", "Approved context. Enter static access code.");
           }

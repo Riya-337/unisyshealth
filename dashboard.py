@@ -406,7 +406,8 @@ def api_register():
         pass
 
     print(
-        f"\n[SSHA REGISTRATION] New request from '{username}' "
+        f"\n[SENTINEL REGISTRATION] New request from '{username}' "
+
         f"(IP token: {logged_ip[:8]}...)\n"
         f"  -> Approve via dashboard /api/admin/users/{username}/approve\n"
     )
@@ -472,7 +473,8 @@ def api_login():
         try:
             with open(_dashboard_log, "a", encoding="utf-8") as _lf:
                 _lf.write(
-                    f"\n[SSHA MFA] Admin OTP for '{username}': {otp}\n"
+                    f"\n[SENTINEL MFA] Admin OTP for '{username}': {otp}\n"
+
                     f"  (displayed on server console -- no external channel needed)\n\n"
                 )
         except Exception:
@@ -647,7 +649,8 @@ def api_respond_alert(incident_id: str):
         }), 404
 
     print(
-        f"\n[SSHA AUTH] Admin '{admin_user}' resolved challenge {incident_id[:8]} -> {decision} (MFA Verified)\n"
+        f"\n[SENTINEL AUTH] Admin '{admin_user}' resolved challenge {incident_id[:8]} -> {decision} (MFA Verified)\n"
+
     )
     return jsonify({"success": True, "decision": decision, "incident_id": incident_id})
 
@@ -784,7 +787,7 @@ def api_retroactive_action(incident_id: str):
             "ip":          ip,
             "reviewed_by": admin,
         })
-        _log_to_file(f"[SSHA RETROACTIVE] Admin '{admin}' released block on IP {ip} (incident {incident_id[:8]})")
+        _log_to_file(f"[SENTINEL RETROACTIVE] Admin '{admin}' released block on IP {ip} (incident {incident_id[:8]})")
         return jsonify({"success": True, "action": "released", "ip": ip, "incident_id": incident_id})
 
     else:  # confirm — keep blocked, just mark reviewed
@@ -794,7 +797,8 @@ def api_retroactive_action(incident_id: str):
             "ip":          ip,
             "reviewed_by": admin,
         })
-        _log_to_file(f"[SSHA RETROACTIVE] Admin '{admin}' confirmed block on IP {ip} (incident {incident_id[:8]})")
+        _log_to_file(f"[SENTINEL RETROACTIVE] Admin '{admin}' confirmed block on IP {ip} (incident {incident_id[:8]})")
+
         return jsonify({"success": True, "action": "confirmed_block", "ip": ip, "incident_id": incident_id})
 
 

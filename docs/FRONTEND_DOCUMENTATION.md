@@ -78,10 +78,10 @@ Admin Responds in <90s             90s Countdown Expires
 ## 4. Terminology Audit & SSE Admin Panels
 
 ### 4.1 Terminology Reconciliation
-- The acronym **SSHA** in backend logs and container element IDs stands for **Sentinel Self-Healing Architecture**.
 - In all user-facing documentation and frontend interfaces, these controls are formally designated as **SSE-Based Admin Control Panels**.
 
 ### 4.2 Admin Control Panel Capabilities
+
 When an authenticated administrator (`is_admin === true`) logs into `/dashboard`, the following specialized control panels are rendered:
 1. **Admin Alerts Queue:** Real-time High-tier authorization challenges with step-up TOTP verification.
 2. **Stasis Review Queue:** Post-timeout review queue for retroactively approving or dismissing auto-locked threats.

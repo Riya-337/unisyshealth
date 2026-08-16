@@ -1,5 +1,6 @@
 {
-  "_comment": "backend: 'sentinel' (SSHA/SSE, zero-cloud default) | 'console' (tests only). Note: 'telegram' / 'dual' are blocked by zero-cloud runtime guard.",
+  "_comment": "backend: 'sentinel' (SSE zero-cloud default) | 'console' (tests only). Note: 'telegram' / 'dual' are blocked by zero-cloud runtime guard.",
+
   "backend": "sentinel",
   "sentinel": {
     "_comment": "SentinelNotifier — self-hosted SSE zero-cloud. Alerts go to server console + logs/alert_queue.jsonl + SSE stream (/api/stream) for local desktop subscriber."

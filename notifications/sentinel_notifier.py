@@ -1,7 +1,8 @@
 """
-SentinelNotifier — SentiHealth Secure Alert & Authorization (SSHA).
+SentinelNotifier — SentiHealth Secure Alert & Authorization.
 
 Self-hosted, zero-cloud replacement for Telegram/Aegis.
+
 
 Delivery path (all on-prem):
   1. Server console  — always printed; physical-access out-of-band channel.

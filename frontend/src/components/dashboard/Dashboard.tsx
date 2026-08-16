@@ -1042,7 +1042,8 @@ function BottomToolbar({
   );
 }
 
-/* ---------- SSHA Admin Panels (admin-only) ---------- */
+/* ---------- SSE Admin Control Panels (admin-only) ---------- */
+
 
 interface PendingChallenge {
   incident_id: string;
@@ -1158,7 +1159,8 @@ function AdminAlerts() {
   return (
     <Card>
       <CardTitle>
-        8. SSHA — Threat Authorization Console
+        8. Threat Authorization Console
+
         {challenges.length > 0 && (
           <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-400/30 animate-pulse">
             {challenges.length} PENDING
@@ -1795,9 +1797,10 @@ export function Dashboard() {
             <DetailedAnalysis feed={snap.feed} blocked={snap.blocked} />
           </div>
 
-          {/* row 5 — admin-only SSHA panels */}
+          {/* row 5 — admin-only SSE control panels */}
           {isAdmin && (
-            <div id="ssha-auth-console" className="mt-6 space-y-6">
+            <div id="sentinel-admin-console" className="mt-6 space-y-6">
+
               <AdminAlerts />
               <StasisPanel />
               <PendingUsers />
