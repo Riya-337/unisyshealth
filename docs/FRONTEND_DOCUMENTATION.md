@@ -1,113 +1,115 @@
-# SentiHealth — Frontend Architecture & Functionality Documentation
+# SentiHealth — Frontend Architecture & Security Documentation
 
-> **Version:** 2.4.1  
-> **Framework:** React 19 + TypeScript + Vite + TanStack Router + TailwindCSS  
+> **Version:** 2.4.2  
+> **Framework:** React 19 + TypeScript + Vite 7.3+ + TanStack Router + TailwindCSS  
 > **Repository Path:** `frontend/`
 
 ---
 
-## 1. Overview & Architecture
+## 1. Structure Verification & Routing Architecture
 
-The **SentiHealth Frontend** is an air-gapped, zero-cloud operations dashboard and security portal designed for real-time cyberthreat monitoring in healthcare environments. It interfaces directly with the Flask backend API (`dashboard.py`) and live monitoring engine (`live_sentinel.py`) over local LAN via REST endpoints and Server-Sent Events (SSE).
+Every route and component listed below has been verified against the actual codebase (`frontend/src/routes/` and `frontend/src/components/dashboard/`):
 
-### Technology Stack
-- **UI Library:** React 19 (Functional TypeScript components with strict mode enabled)
-- **Routing:** TanStack Router (`frontend/src/routes/`)
-- **Build System:** Vite 7.3+
-- **Styling:** Vanilla TailwindCSS + HSL color design system
-- **Micro-Animations:** Framer Motion (`motion/react`)
-- **Charts & Data Visualization:** Recharts (Donut, Bar, Risk Series charts)
-- **Toast Notifications:** Sonner (Custom inline step-up authorization toasts)
-
----
-
-## 2. Page Routes & User Flows
-
+### 1.1 Verified File Structure
 ```text
-[ Access Portal ] http://localhost:8080/
-      ├── Login Form (PBKDF2 Password Check)
-      ├── Account Registration Request Form
-      └── Step-Up MFA / Backup Code Redemption Modal
-            │
-            ▼ (Session Token Granted: sessionStorage + localStorage)
-[ Operations Dashboard ] http://localhost:8080/dashboard
-      ├── 1. System Status Indicator (NORMAL / THREAT / LOCKDOWN)
-      ├── 2. Blockchain Audit Ledger Status & Block Count
-      ├── 3. MTTR (Mean-Time-To-Respond) Timer
-      ├── 4. Recent Threat Detections Table (All / High / Medium / Low)
-      ├── 5. Tier Distribution & Risk Score Gauge
-      ├── 6. ML Ensemble Performance Metrics (RF, GB, SVM, LR, XGBoost)
-      ├── 7. Real-Time High-Tier SSE Step-Up Authorization Toasts (90s Countdown)
-      ├── 8. Expandable Detailed Analysis (Live Feed & Blocked IPs Table)
-      └── 9. Admin SSHA Panels (Alerts Queue, Stasis Queue, Pending User Approvals)
+frontend/src/
+├── routes/
+│   ├── __root.tsx             # Root layout & global HTML head metadata
+│   ├── index.tsx              # Login & Access Request Portal
+│   └── dashboard.tsx          # Operations Dashboard Route wrapper
+├── components/
+│   └── dashboard/
+│         ├── Dashboard.tsx    # Main Operations Dashboard & Admin Control Panels
+│         └── GeoMap.tsx       # Offline Geolocation Visualization Widget
+├── lib/
+│   ├── sentinel-data.ts       # API data mapper, SSE hook, and fallback definitions
+│   └── audit-log.ts           # Emergency local audit helper
+└── styles.css                 # Global HSL CSS design system
 ```
 
 ---
 
-## 3. Core Frontend Functionalities
+## 2. Authentication, Session Security & Data Isolation
 
-### 3.1 Authentication & Custodian Security Gate (`frontend/src/routes/index.tsx`)
-- **Dual-Factor Login:** Accepts administrator credentials (`admin` / `adminpass123`) or registered user emails.
-- **Dynamic Risk-Adaptive MFA:** Displays a 2FA TOTP verification modal. Supports 6-digit TOTP codes from Google Authenticator / Authy or 64-character emergency backup recovery codes.
-- **Dual Token Storage:** Saves `auth_token` to both `sessionStorage` and `localStorage` to preserve session state across browser refreshes and multi-tab workflows.
-- **User Account Registration:** Allows new healthcare operators to submit access requests (`/api/auth/register`), which are queued for administrator sign-off.
+### 2.1 Session Token Persistence (`sessionStorage` Only)
+- **Security Design Rationale:** Session authentication tokens (`auth_token`) are strictly saved in **`sessionStorage` ONLY**.
+- **Removal of `localStorage`:** `localStorage` persistence was deliberately **removed** to prevent XSS script token theft across tabs. For a security operations panel with lockdown authority, storing session tokens in `localStorage` would allow any injected script to read the session token and bypass administrative authentication controls.
+- **Session Lifespan:** `sessionStorage` ensures the token is automatically wiped from browser memory when the tab or window is closed.
 
----
-
-### 3.2 Live System Status & Threat Telemetry (`frontend/src/components/dashboard/Dashboard.tsx`)
-- **System Status Card:**
-  - `NORMAL`: All network traffic nominal (Green badge).
-  - `THREAT`: Elevated threat detected (Red pulsing badge).
-  - `LOCKDOWN`: Multiple pending High-tier threats awaiting human decision (Orange pulsing badge).
-- **Dual Audit Ledger Card:** Displays cryptographic chain status (`INTACT` or `COMPROMISED`) verified via SHA-256 and HMAC checks, along with total blocked IP counts.
-- **MTTR Clock:** Real-time counter tracking response latency since the last detected threat.
+### 2.2 User Registration & Admin Approval Workflow
+1. **User Sign-up:** Users submit credentials via `POST /api/auth/register` on the `/` access portal (`index.tsx`).
+2. **Pending Queue:** Account status is stored as `"pending"` in `data/users.json`.
+3. **Admin Sign-Off:** Authenticated administrators review and approve accounts via the **Pending Registration Approvals** panel on the `/dashboard` route using `POST /api/admin/users/<username>/approve`.
 
 ---
 
-### 3.3 Threat Detection Table & Tier Filtering
-- **Multi-Tier View:** Displays the 10 most recent threat events.
-- **Tier Filter:** Interactively filters threats by `All Tiers`, `High`, `Medium`, or `Low`.
-- **SHAP Feature Importance Modal:** Clicking **SHAP** opens a modal fetching the model explanation PNG chart (`/api/shap/<filename>`) behind the authenticated custodian gate.
-- **Threat Detail Drawer:** Clicking any row slides out a detailed drawer showing geolocation (City, Country), ML Risk Score gauge, attack nature, and UTC timestamp.
+## 3. 90-Second Step-Up Authorization & Timeout Protocol
+
+### 3.1 Unambiguous Timeout Behavior
+When a **High-tier threat** is detected by `live_sentinel.py`, an authorization challenge is broadcast to authenticated administrator sessions via Server-Sent Events (`/api/stream`).
+
+```text
+[ High-Tier Threat Detected ]
+           │
+           ▼
+[ SSE Broadcast: /api/stream ] ──► Admin Browser Toast (90s Countdown)
+           │
+     ┌─────┴─────────────────────────────┐
+     ▼                                   ▼
+Admin Responds in <90s             90s Countdown Expires
+┌──────────────────────────┐       ┌─────────────────────────────────────┐
+│ • YES: Forensics generated│       │ • NO DESTRUCTIVE ACTION EXECUTED    │
+│ • DENY: Aborted          │       │ • Incident queued in Stasis Panel   │
+└──────────────────────────┘       │ • Auto-escalation summary sent      │
+                                   │ • Awaits human review (Stasis Panel)│
+                                   └─────────────────────────────────────┘
+```
+
+### 3.2 Constitution Article III.4 Compliance
+- **No Automatic Destructive Actions:** Per **Constitution Article III.4**, High-tier threats **MUST NOT** trigger automated destructive actions or permanent IP bans without explicit human sign-off via TOTP step-up authentication.
+- **Stasis Review Queue Behavior:** When the 90-second countdown expires without admin intervention, `live_sentinel.py` **does not execute an automated IP ban**. Instead, it:
+  1. Marks the incident status as `"auto-locked"` (stasis) in `logs/threat_log.json`.
+  2. Sends an auto-escalation notification summary (`send_summary()`) to operators.
+  3. Queues the event in the **Stasis Review Queue** (`/api/alerts/stasis`).
+  4. Requires an authenticated admin to log in to the dashboard and retroactively select **Release Block** or **Confirm Block**.
 
 ---
 
-### 3.4 ML Ensemble Performance Panel
-- **5-Model Comparison Table:** Renders accuracy, precision, recall, F1 score, and AUC-ROC metrics for all 5 calibrated machine learning models:
-  1. `RF` (Random Forest — weight: 0.25)
-  2. `GB` (Gradient Boosting — weight: 0.20)
-  3. `SVM` (Support Vector Machine — weight: 0.20)
-  4. `LR` (Logistic Regression — weight: 0.15)
-  5. `XGB` (XGBoost — weight: 0.20)
-- **Interactive Bar Chart:** Visualizes model AUC-ROC metrics side-by-side.
+## 4. Terminology Audit & SSE Admin Panels
+
+### 4.1 Terminology Reconciliation
+- The acronym **SSHA** in backend logs and container element IDs stands for **Sentinel Self-Healing Architecture**.
+- In all user-facing documentation and frontend interfaces, these controls are formally designated as **SSE-Based Admin Control Panels**.
+
+### 4.2 Admin Control Panel Capabilities
+When an authenticated administrator (`is_admin === true`) logs into `/dashboard`, the following specialized control panels are rendered:
+1. **Admin Alerts Queue:** Real-time High-tier authorization challenges with step-up TOTP verification.
+2. **Stasis Review Queue:** Post-timeout review queue for retroactively approving or dismissing auto-locked threats.
+3. **Pending Users Panel:** Account approval interface for new operator registration requests.
 
 ---
 
-### 3.5 Real-Time Zero-Cloud SSE Step-Up Authorization (`useHighTierSSE`)
-- **Zero-Cloud Stream:** Connects to `/api/stream?token=<token>` over EventSource.
-- **Instant Toast Alert:** When a High-tier intrusion occurs, an inline red toast notification pops up with:
-  - 90-second countdown timer before automated lockdown.
-  - **`✓ YES — Approve`** button (Triggers forensic report generation).
-  - **`✗ DENY — Defend`** button (Holds defensive posture).
+## 5. Geolocation Drawer & Data Minimization Audit
+
+### 5.1 Origin of the Feature
+- **Origin:** The **Geolocation Drawer (City, Country)** was introduced as a visual UI representation widget (`GeoMap.tsx` / `sentinel-data.ts`) to provide security operators with dynamic location context during threat triage.
+- **PRD/TRD Status:** It is **not** a mandated requirement in the core PRD, TRD, or Constitution.
+
+### 5.2 IP Handling & Offline Implementation
+- **Offline Deterministic Lookup:** Geolocation lookup is performed strictly **offline in-browser** (`geoForIP()`) using static IP subnet prefix matching and mathematical seed modulo mapping.
+- **Zero External API Calls:** No external cloud geolocation services or APIs (e.g. MaxMind, ipinfo.io) are called, preserving the 100% zero-cloud air-gap guarantee.
+
+### 5.3 Data Minimization Governance Flag
+> [!NOTE]  
+> **Data Minimization Audit Note:** In accordance with HIPAA privacy standards and Constitution Article IV (IP Pseudonymization via `_tokenize_ip()`), exact IP geographic plotting is classified as an **optional presentation-layer feature**. Real IP addresses remain strictly gated behind administrator authentication (`_require_auth`).
 
 ---
 
-### 3.6 Blocked IPs & Detailed Analysis Table
-- **Complete Tier Coverage:** Displays all contained/blocked threats across **High**, **Medium**, and **Low** tiers.
-- **Live Search:** Enables instantaneous IP filtering.
-- **Action Badges:** Shows status tags (`AUTO-LOCKED`, `RESOLVED`, `FORENSICS GENERATED`, `DENIED`, `ADMIN RELEASED`).
+## 6. Real-Time SSE Event Specifications
 
----
-
-### 3.7 Admin SSHA Control Panels (Admin Only)
-- **Pending Challenges:** Shows unresolved High-tier authorization challenges.
-- **Stasis Review Queue:** Displays expired/auto-locked threats allowing retro-active `Release Block` or `Confirm Block` decisions.
-- **User Management Panel:** Lists pending registration requests with one-click **Approve** or **Reject** controls.
-
----
-
-## 4. Key Security & Privacy Controls
-
-1. **Air-Gapped Telemetry:** No external network or cloud services are invoked by the frontend.
-2. **Custodian Access Gate:** Real IP addresses, SHAP charts, and audit logs are only rendered after session token validation.
-3. **Browser Notifications:** Requests desktop notification permission for background tab alerting.
+| Event Name | Source Endpoint | Description | Frontend Handler |
+|------------|-----------------|-------------|------------------|
+| `connected` | `/api/stream` | Initial SSE connection handshake | `useHighTierSSE()` |
+| `threat_update` | `/api/stream` | Pushed when a new scored threat is logged | `useSentinel()` |
+| `high_alert` | `/api/stream` | Triggers 90s step-up authorization toast | `useHighTierSSE()` |
+| `stasis_resolved` | `/api/stream` | Pushed when an admin acts on a stasis challenge | `StasisPanel()` |

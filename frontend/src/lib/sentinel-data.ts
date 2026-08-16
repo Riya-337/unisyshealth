@@ -185,7 +185,7 @@ const FALLBACK: SentinelSnapshot = {
 
 function authHeaders(): HeadersInit {
   const token = typeof window !== "undefined"
-    ? sessionStorage.getItem("auth_token") ?? localStorage.getItem("auth_token") ?? ""
+    ? sessionStorage.getItem("auth_token") ?? ""
     : "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -227,8 +227,9 @@ export function useSentinel(autoRefresh = true): SentinelSnapshot {
   // backend tail-follows the file and pushes it here immediately — no poll lag.
   useEffect(() => {
     const token = typeof window !== "undefined"
-      ? sessionStorage.getItem("auth_token") ?? localStorage.getItem("auth_token") ?? ""
+      ? sessionStorage.getItem("auth_token") ?? ""
       : "";
+
 
     if (!token) return;
 

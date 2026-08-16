@@ -25,8 +25,9 @@ function useHighTierSSE() {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("auth_token") ?? localStorage.getItem("auth_token");
+    const token = sessionStorage.getItem("auth_token");
     if (!token) return;
+
 
 
     /** Inline YES/NO respond — used by the toast buttons */

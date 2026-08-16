@@ -367,16 +367,16 @@ def handle_high_tier_threat(ip, features, result, alert_msg):
     resolve_time = time.time() - start_wait
 
     if approved == "TIMEOUT":
-        print(f"\n{Fore.YELLOW}[AUTO] No admin response in 90s. Auto-lockdown for {ip}.")
+        print(f"\n{Fore.YELLOW}[STASIS QUEUED] No admin response in 90s. Threat queued for human review in Stasis Panel ({ip}).")
         update_threat_log_action(ip, "auto-locked")
-        respond(result, auth_token="ADMIN_TIMEOUT_AUTO_ESCALATE")
         get_notifier().send_summary(
-            f"AUTO-ESCALATION RESOLVED\n"
-            f"Admin timeout (>90s). Auto-lockdown executed.\n"
+            f"STASIS AUTO-ESCALATION NOTIFICATION\n"
+            f"Admin timeout (>90s). Threat queued in Stasis Review Queue.\n"
             f"Attack Tier: {result['tier'].upper()}\n"
             f"Resolution Time: {resolve_time:.1f}s\n"
-            f"Attacker {ip} permanently blocked. Database snapshotted."
+            f"Attacker {ip} restricted. Awaiting human admin stasis review."
         )
+
     elif approved == "YES":
         print(f"\n{Fore.GREEN}[+] Authorization verified. Generating forensic report.")
         update_threat_log_action(ip, "forensics_generated")
