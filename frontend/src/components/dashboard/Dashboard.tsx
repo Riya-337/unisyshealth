@@ -1758,6 +1758,30 @@ export function Dashboard() {
     }
   }, []);
 
+  // ── Session Idle Timeout Auto-Logout (15 mins inactivity) ────────────
+  useEffect(() => {
+    const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+    let timer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        sessionStorage.clear();
+        window.location.href = "/";
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const events = ["mousemove", "keydown", "click", "scroll"];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, []);
+
+
   const filteredRecent = useMemo(
     () => (filter === "All" ? snap.recent : snap.recent.filter((r) => r.tier === filter)),
     [snap.recent, filter]

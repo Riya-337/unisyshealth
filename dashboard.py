@@ -52,8 +52,9 @@ from notifications import get_notifier as _get_notifier
 from _paths import (
     LOGS_DIR, DATA_DIR, CONFIG_DIR, USERS_FILE, AUDIT_CHAIN,
     THREAT_LOG, BLOCKED_IPS, EVENTS_LOG, CHALLENGES_FILE,
-    ALERT_QUEUE, CANARY_LOG, TAMPER_ALERTS, p as _p,
+    ALERT_QUEUE, CANARY_LOG, TAMPER_ALERTS, LOCKED_ACCOUNTS, p as _p,
 )
+
 
 
 from flask import Flask, Response, jsonify, request, send_file, stream_with_context
@@ -417,22 +418,136 @@ def api_register():
     })
 
 
+# ---------------------------------------------------------------------------
+# Rate Limiting & Account Lockout Tracker (5 failed attempts in 15 mins)
+# ---------------------------------------------------------------------------
+_failed_login_attempts: dict[str, list[float]] = {}
+_failed_attempts_lock = threading.Lock()
+_MAX_FAILED_ATTEMPTS = 5
+_LOCKOUT_WINDOW_SEC = 900  # 15 minutes
+
+
+def _is_rate_limited_or_locked(username: str, ip: str) -> tuple[bool, str]:
+    """Check if username or IP is rate-limited / locked out."""
+    now = time.time()
+    
+    # 1. Check locked_accounts.json file
+    if os.path.exists(LOCKED_ACCOUNTS):
+        try:
+            with open(LOCKED_ACCOUNTS, "r", encoding="utf-8") as f:
+                locked_list = json.load(f)
+                for entry in locked_list:
+                    if (entry.get("username") == username or entry.get("ip") == ip) and entry.get("status") == "locked":
+                        return True, f"Account or IP '{username}' is locked. Contact administrator or use recovery."
+        except Exception:
+            pass
+
+    # 2. Check in-memory rolling window (5 failures in 15 mins)
+    with _failed_attempts_lock:
+        for key in (username, ip):
+            if key and key in _failed_login_attempts:
+                recent = [t for t in _failed_login_attempts[key] if now - t < _LOCKOUT_WINDOW_SEC]
+                _failed_login_attempts[key] = recent
+                if len(recent) >= _MAX_FAILED_ATTEMPTS:
+                    _lock_account_persistent(username, ip, f"Excessive failed authentication attempts ({len(recent)} in 15m)")
+                    return True, "Account locked due to 5 consecutive failed login attempts. Try again in 15 minutes or use recovery."
+                    
+    return False, ""
+
+
+def _record_failed_attempt(username: str, ip: str):
+    """Record a failed login/OTP attempt."""
+    now = time.time()
+    with _failed_attempts_lock:
+        for key in (username, ip):
+            if key:
+                if key not in _failed_login_attempts:
+                    _failed_login_attempts[key] = []
+                _failed_login_attempts[key].append(now)
+
+
+def _record_success_attempt(username: str, ip: str):
+    """Clear failed attempts on successful login."""
+    with _failed_attempts_lock:
+        _failed_login_attempts.pop(username, None)
+        _failed_login_attempts.pop(ip, None)
+
+
+def _lock_account_persistent(username: str, ip: str, reason: str):
+    """Write lockout entry to locked_accounts.json and tamper_alerts.log."""
+    try:
+        locked_list = []
+        if os.path.exists(LOCKED_ACCOUNTS):
+            with open(LOCKED_ACCOUNTS, "r", encoding="utf-8") as f:
+                locked_list = json.load(f)
+        
+        existing = next((e for e in locked_list if e.get("username") == username and e.get("status") == "locked"), None)
+        if not existing:
+            entry = {
+                "username": username,
+                "ip": ip,
+                "status": "locked",
+                "reason": reason,
+                "locked_at": datetime.now(timezone.utc).isoformat(),
+            }
+            locked_list.append(entry)
+            with open(LOCKED_ACCOUNTS, "w", encoding="utf-8") as f:
+                json.dump(locked_list, f, indent=2)
+                
+            if os.path.exists(TAMPER_ALERTS):
+                with open(TAMPER_ALERTS, "a", encoding="utf-8") as tf:
+                    tf.write(f"[{datetime.now(timezone.utc).isoformat()}] ACCOUNT_LOCKOUT: {reason} for user '{username}' (IP: {ip})\n")
+    except Exception as e:
+        print(f"[ERROR] Failed to persist lockout: {e}")
+
+
+@app.after_request
+def apply_security_headers(response):
+    """Apply strict security headers to all Flask responses."""
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' ws: wss:; "
+        "font-src 'self' data:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
 @app.route("/api/auth/login", methods=["POST"])
 def api_login():
     data = request.json or {}
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
+    client_ip = request.remote_addr or "127.0.0.1"
 
     if not username or not password:
         return jsonify({"success": False, "message": "Username and password required."}), 400
 
+    # ── Check Rate Limiting & Account Lockout ─────────────────────────────
+    is_locked, lock_msg = _is_rate_limited_or_locked(username, client_ip)
+    if is_locked:
+        return jsonify({"success": False, "message": lock_msg}), 429
+
     users = load_users()
     if username not in users:
+        _record_failed_attempt(username, client_ip)
         return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
     user = users[username]
     if not _check_password(password, user["password"]):
+        _record_failed_attempt(username, client_ip)
         return jsonify({"success": False, "message": "Invalid username or password."}), 401
+
 
     # Transparently upgrade plaintext passwords to PBKDF2 on first successful login
     if not user["password"].startswith("pbkdf2:"):
@@ -516,12 +631,19 @@ def api_verify_otp():
     data = request.json or {}
     username = data.get("username", "").strip()
     code = data.get("code", "").strip()
+    client_ip = request.remote_addr or "127.0.0.1"
 
     if not username or not code:
         return jsonify({"success": False, "message": "Username and code required."}), 400
 
+    # ── Check Rate Limiting & Account Lockout ─────────────────────────────
+    is_locked, lock_msg = _is_rate_limited_or_locked(username, client_ip)
+    if is_locked:
+        return jsonify({"success": False, "message": lock_msg}), 429
+
     users = load_users()
     if username not in users:
+        _record_failed_attempt(username, client_ip)
         return jsonify({"success": False, "message": "User not found."}), 404
 
     user = users[username]
@@ -531,14 +653,17 @@ def api_verify_otp():
         with _otps_lock:
             valid = _verify_mfa_code(username, code, user)
             if not valid:
+                _record_failed_attempt(username, client_ip)
                 return jsonify({"success": False, "message": "Invalid MFA TOTP or backup recovery code."}), 401
             _active_otps.pop(username, None)
 
     else:
         expected = user.get("access_code")
         if not expected or code != expected:
+            _record_failed_attempt(username, client_ip)
             return jsonify({"success": False, "message": "Incorrect access code."}), 401
 
+    _record_success_attempt(username, client_ip)
     token = _create_session(username, is_admin)
     return jsonify({
         "success": True,
@@ -546,6 +671,7 @@ def api_verify_otp():
         "username": username,
         "is_admin": is_admin,
     })
+
 
 
 # ---------------------------------------------------------------------------

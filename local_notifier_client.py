@@ -44,12 +44,20 @@ def trigger_desktop_notification(title: str, message: str, is_high: bool = True)
             logger.debug(f"plyer notification exception: {e}")
 
 
+def _get_verify_path() -> str | bool:
+    """Return local CA certificate path if available, or True for standard bundle."""
+    crt = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "certs", "server.crt")
+    if os.path.exists(crt):
+        return crt
+    return True
+
+
 def _auto_authenticate(server_url: str, username: str = "admin", password: str = "", totp_code: str = "") -> str:
     """Obtain session token from dashboard API via user login."""
     url = f"{server_url.rstrip('/')}/api/auth/login"
+    verify_opt = _get_verify_path()
     try:
         if not password and not sys.stdin.isatty():
-            # In non-interactive batch test environment, attempt standard admin auth
             password = os.environ.get("SENTIHEALTH_ADMIN_PASSWORD", "adminpass123")
 
         if not password:
@@ -58,7 +66,8 @@ def _auto_authenticate(server_url: str, username: str = "admin", password: str =
             username = input(f" Username [{username}]: ").strip() or username
             password = getpass.getpass(" Password: ")
 
-        res1 = requests.post(url, json={"username": username, "password": password}, timeout=10)
+        res1 = requests.post(url, json={"username": username, "password": password}, verify=verify_opt, timeout=10)
+
         if res1.status_code != 200:
             logger.error(f"[Notifier Client] Login failed: {res1.json().get('message', 'Invalid credentials')}")
             return ""
@@ -98,7 +107,8 @@ def listen_sse_stream(server_url: str, token: str = ""):
 
         logger.info(f"[Notifier Client] Connecting to zero-cloud SSE alert stream: {endpoint}")
         try:
-            with requests.get(endpoint, headers=headers, stream=True, timeout=60) as response:
+            with requests.get(endpoint, headers=headers, stream=True, verify=_get_verify_path(), timeout=60) as response:
+
                 if response.status_code == 401:
                     logger.warning("[Notifier Client] Authentication required (401). Attempting authentication...")
                     token = _auto_authenticate(server_url)
