@@ -15,4 +15,10 @@ imbalanced-learn
 requests
 python-dotenv
 cryptography
-pyngrok
+pyotp
+plyer
+psycopg2-binary==2.9.9
+
+
+
+

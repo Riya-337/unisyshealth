@@ -14,7 +14,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from _paths import (
-    DATA_DIR, AUDIT_CHAIN, APP_DB, SNAPSHOTS_DIR,
+    DATA_DIR, AUDIT_CHAIN, AUDIT_CHAIN_REPLICA, APP_DB, SNAPSHOTS_DIR,
     LOGS_DIR, BLOCKED_IPS, LOCKED_ACCOUNTS,
     INTEGRITY_ALERTS, TAMPER_ALERTS, NETWORK_ACTIONS,
     RETRAINING_DIR, RETRAINING_QUEUE, p as _p,
@@ -31,7 +31,7 @@ assert CRITICAL_SEGMENTS == []
 
 
 # ---------------------------------------------------------------------------
-# Genesis bootstrap -- create audit_chain.json on startup if absent
+# Genesis bootstrap -- create audit_chain.json & audit_chain_replica.json
 # ---------------------------------------------------------------------------
 def _bootstrap_chain():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -43,11 +43,12 @@ def _bootstrap_chain():
             "entry_hash":  hashlib.sha256(b"genesis").hexdigest(),
             "block_hmac":  _hmac.new(SESSION_SECRET, genesis_str.encode(), hashlib.sha256).hexdigest(),
         }
-        tmp = AUDIT_CHAIN + '.tmp'
-        with open(tmp, 'w') as f:
-            json.dump([genesis], f, indent=2)
-        os.replace(tmp, AUDIT_CHAIN)
-        print(f"[CHAIN] Hardened genesis block created -> {AUDIT_CHAIN}")
+        for path in (AUDIT_CHAIN, AUDIT_CHAIN_REPLICA):
+            tmp = path + '.tmp'
+            with open(tmp, 'w') as f:
+                json.dump([genesis], f, indent=2)
+            os.replace(tmp, path)
+        print(f"[CHAIN] Hardened genesis block created -> {AUDIT_CHAIN} & {AUDIT_CHAIN_REPLICA}")
 
 _bootstrap_chain()
 
@@ -73,63 +74,82 @@ def _block_hmac(entry: dict, secret: bytes) -> str:
 
 
 def _write_chain_atomic(chain: list, path: str = None):
-    if path is None:
-        path = AUDIT_CHAIN
-    """Write chain atomically via temp file + rename -- prevents partial-write corruption."""
-    tmp = path + '.tmp'
-    with open(tmp, 'w') as f:
-        json.dump(chain, f, indent=2)
-    os.replace(tmp, path)  # atomic on POSIX / Windows
+    """Write chain atomically via temp file + rename -- write-ahead dual replication."""
+    target_paths = [AUDIT_CHAIN, AUDIT_CHAIN_REPLICA] if (path is None or path == AUDIT_CHAIN) else [path]
+    for p in target_paths:
+        tmp = p + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(chain, f, indent=2)
+        os.replace(tmp, p)  # atomic on POSIX / Windows
 
 
-def verify_chain_integrity() -> bool:
-    """
-    Three-layer chain verification:
-      1. Block index continuity  -> detects insertion or deletion
-      2. SHA-256 hash linkage    -> detects any hash flip
-      3. HMAC-SHA256 signature   -> detects content injection even with valid hash
-    Returns True if intact, False if tampered (and fires alert).
-    """
-    if not os.path.exists(AUDIT_CHAIN):
-        return True
+def _verify_single_chain_file(file_path: str, label: str) -> tuple[bool, list]:
+    """Helper to verify internal integrity of a single audit chain file."""
+    if not os.path.exists(file_path):
+        _integrity_alert(f"{label.upper()} AUDIT CHAIN FILE MISSING/DELETED: {file_path}")
+        return False, []
     try:
-        with open(AUDIT_CHAIN, 'r') as f:
+        with open(file_path, 'r') as f:
             chain = json.load(f)
 
         for i, entry in enumerate(chain[1:], 1):
-            # Layer 1 -- Block index continuity
             if entry.get('block_index') is not None and entry['block_index'] != i:
-                _integrity_alert(
-                    f"BLOCK INDEX MISMATCH at position {i}: "
-                    f"expected {i}, got {entry.get('block_index')} "
-                    f"-- insertion or deletion detected"
-                )
-                return False
+                _integrity_alert(f"BLOCK INDEX MISMATCH in {label} at position {i}: expected {i}, got {entry.get('block_index')}")
+                return False, []
 
-            # Layer 2 -- SHA-256 hash linkage
             prev_hash = chain[i - 1]['entry_hash']
             entry_for_hash = {k: v for k, v in entry.items() if k not in ('entry_hash', 'block_hmac')}
             expected_hash = hashlib.sha256(
                 (prev_hash + json.dumps(entry_for_hash, sort_keys=True)).encode()
             ).hexdigest()
             if entry['entry_hash'] != expected_hash:
-                _integrity_alert(f"HASH CHAIN BROKEN at block {i} -- hash flip detected")
-                return False
+                _integrity_alert(f"HASH CHAIN BROKEN in {label} at block {i}")
+                return False, []
 
-            # Layer 3 -- HMAC content signature
             if 'block_hmac' in entry:
                 expected_hmac = _block_hmac(entry, SESSION_SECRET)
                 if not _hmac.compare_digest(entry['block_hmac'], expected_hmac):
-                    _integrity_alert(
-                        f"HMAC SIGNATURE INVALID at block {i} "
-                        f"-- content injection detected (block has valid hash but wrong HMAC)"
-                    )
-                    return False
+                    _integrity_alert(f"HMAC SIGNATURE INVALID in {label} at block {i}")
+                    return False, []
 
-        return True
+        return True, chain
     except Exception as e:
-        _integrity_alert(f"CHAIN PARSE ERROR: {e}")
+        _integrity_alert(f"{label.upper()} CHAIN PARSE ERROR: {e}")
+        return False, []
+
+
+def verify_chain_integrity() -> bool:
+    """
+    Three-layer chain verification + Dual-Volume Replication Consistency Check:
+      1. Primary chain internal integrity check (index, hash linkage, HMAC)
+      2. Replica chain internal integrity check
+      3. Cross-file replication consistency check (block count & hash matching)
+    Returns True if intact, False if tampered (triggers HALTED_CORRUPTION).
+    Requires explicit operator authorization via scripts/restore_audit_chain.py to restore.
+    """
+    if not os.path.exists(AUDIT_CHAIN) and not os.path.exists(AUDIT_CHAIN_REPLICA):
+        return True
+
+    p_ok, p_chain = _verify_single_chain_file(AUDIT_CHAIN, "Primary")
+    if not p_ok:
         return False
+
+    r_ok, r_chain = _verify_single_chain_file(AUDIT_CHAIN_REPLICA, "Replica")
+    if not r_ok:
+        return False
+
+    # Replication consistency check between Primary and Replica
+    if len(p_chain) != len(r_chain):
+        _integrity_alert(f"REPLICATION DISCREPANCY: Primary count ({len(p_chain)}) != Replica count ({len(r_chain)})")
+        return False
+
+    for i in range(len(p_chain)):
+        if p_chain[i].get('entry_hash') != r_chain[i].get('entry_hash'):
+            _integrity_alert(f"REPLICATION DISCREPANCY: Entry hash mismatch at block {i}")
+            return False
+
+    return True
+
 
 
 def _watchdog():
@@ -212,34 +232,19 @@ def respond(
     tier = classification['tier']
     event_id = classification['event_id']
 
-    # --- Audit chain bootstrap ---
-    if not os.path.exists(AUDIT_CHAIN):
-        os.makedirs(DATA_DIR, exist_ok=True)
-        genesis = {"block_index": 0, "entry_hash": hashlib.sha256(b"genesis").hexdigest()}
-        genesis["block_hmac"] = _block_hmac(genesis, SESSION_SECRET)
-        _write_chain_atomic([genesis])
+    # --- Ensure bootstrap if neither audit chain file exists yet ---
+    if not os.path.exists(AUDIT_CHAIN) and not os.path.exists(AUDIT_CHAIN_REPLICA):
+        _bootstrap_chain()
+
+    # --- Synchronous chain verification check before append ---
+    if not verify_chain_integrity():
+        _integrity_alert("SYNCHRONOUS HASH OR REPLICATION CORRUPTION HALT")
+        return {"status": "HALTED_CORRUPTION"}
 
     with open(AUDIT_CHAIN, 'r') as f:
         chain = json.load(f)
     prev_hash = chain[-1]['entry_hash']
 
-    # Synchronous three-layer check before append
-    if len(chain) > 1:
-        last = chain[-1]
-        verify_prev = chain[-2]['entry_hash']
-        last_for_hash = {k: v for k, v in last.items() if k not in ('entry_hash', 'block_hmac')}
-        expected_hash = hashlib.sha256(
-            (verify_prev + json.dumps(last_for_hash, sort_keys=True)).encode()
-        ).hexdigest()
-        if expected_hash != prev_hash:
-            get_notifier().send_alert("CRITICAL: CHAIN_HASH_CORRUPTION -- system halted")
-            _integrity_alert("SYNCHRONOUS HASH CORRUPTION HALT")
-            return {"status": "HALTED_CORRUPTION"}
-        if 'block_hmac' in last:
-            if not _hmac.compare_digest(last['block_hmac'], _block_hmac(last, SESSION_SECRET)):
-                get_notifier().send_alert("CRITICAL: BLOCK_HMAC_INVALID -- content injection detected")
-                _integrity_alert("SYNCHRONOUS HMAC INJECTION HALT")
-                return {"status": "HALTED_INJECTION"}
 
     entry = {
         "event_id": event_id,
@@ -247,6 +252,7 @@ def respond(
         "tier": tier,
         "prev_hash": prev_hash,
     }
+
 
     # --- Get live_sentinel module for session counters (backwards-compat) ---
     import sys

@@ -40,13 +40,21 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyotp
+    _HAS_PYOTP = True
+except ImportError:
+    _HAS_PYOTP = False
+
+
 from notifications import get_notifier as _get_notifier
 
 from _paths import (
     LOGS_DIR, DATA_DIR, CONFIG_DIR, USERS_FILE, AUDIT_CHAIN,
     THREAT_LOG, BLOCKED_IPS, EVENTS_LOG, CHALLENGES_FILE,
-    ALERT_QUEUE, CANARY_LOG, p as _p,
+    ALERT_QUEUE, CANARY_LOG, TAMPER_ALERTS, p as _p,
 )
+
 
 from flask import Flask, Response, jsonify, request, send_file, stream_with_context
 
@@ -178,11 +186,63 @@ def _otp_valid(username: str, code: str) -> bool:
         return False
     return entry["otp"] == code
 
+
+# ---------------------------------------------------------------------------
+# TOTP & Backup Code MFA Helpers
+# ---------------------------------------------------------------------------
+
+def _generate_totp_secret() -> str:
+    if _HAS_PYOTP:
+        return pyotp.random_base32()
+    return secrets.token_hex(16)
+
+
+def _hash_backup_code(code: str) -> str:
+    return hashlib.sha256(code.encode('utf-8')).hexdigest()
+
+
+def _generate_backup_codes(count: int = 8) -> tuple[list[str], list[str]]:
+    raw_codes = [f"{secrets.randbelow(100000000):08d}" for _ in range(count)]
+    hashed_codes = [_hash_backup_code(c) for c in raw_codes]
+    return raw_codes, hashed_codes
+
+
+def _verify_mfa_code(username: str, code: str, user: dict) -> bool:
+    """Verify code against TOTP, backup recovery codes, or dynamic OTP."""
+    code = code.strip()
+    if not code:
+        return False
+
+    totp_secret = user.get("totp_secret")
+    if totp_secret and _HAS_PYOTP:
+        try:
+            if pyotp.TOTP(totp_secret).verify(code, valid_window=1):
+                return True
+        except Exception:
+            pass
+
+    # Check emergency backup recovery codes (hashed)
+    code_hash = _hash_backup_code(code)
+    backup_codes = list(user.get("mfa_backup_codes", []))
+    if code_hash in backup_codes:
+        backup_codes.remove(code_hash)
+        users = load_users()
+        if username in users:
+            users[username]["mfa_backup_codes"] = backup_codes
+            save_users(users)
+        print(f"[MFA] Backup recovery code redeemed for user '{username}'. {len(backup_codes)} codes remaining.")
+        return True
+
+    # Fall back to dynamic console OTP
+    return _otp_valid(username, code)
+
+
 # ---------------------------------------------------------------------------
 # User store helpers
 # ---------------------------------------------------------------------------
 
 _users_lock = threading.Lock()
+USERS_HMAC_FILE = _p("data", ".users.json.hmac")
 
 
 def load_users() -> dict:
@@ -190,8 +250,26 @@ def load_users() -> dict:
         if not os.path.exists(USERS_FILE):
             return {}
         try:
-            with open(USERS_FILE, "r") as f:
-                return json.load(f)
+            with open(USERS_FILE, "rb") as f:
+                content_bytes = f.read()
+
+            # Verify HMAC signature to detect out-of-band tampering
+            if os.path.exists(USERS_HMAC_FILE):
+                try:
+                    with open(USERS_HMAC_FILE, "r") as hf:
+                        stored_hmac = hf.read().strip()
+                    from scoring_matrix import SESSION_SECRET
+                    computed_hmac = _hmac.new(SESSION_SECRET, content_bytes, hashlib.sha256).hexdigest()
+                    if not _hmac.compare_digest(stored_hmac, computed_hmac):
+                        msg = f"[USERS.JSON TAMPERING DETECTED] Out-of-band edit to {USERS_FILE} detected!"
+                        print(f"\033[91m{msg}\033[0m", flush=True)
+                        os.makedirs(LOGS_DIR, exist_ok=True)
+                        with open(TAMPER_ALERTS, "a") as af:
+                            af.write(f"{datetime.now(timezone.utc).isoformat()} -- {msg}\n")
+                except Exception as hexc:
+                    print(f"[AUTH WARNING] HMAC verification check error: {hexc}")
+
+            return json.loads(content_bytes.decode('utf-8'))
         except Exception as e:
             print(f"[AUTH] Error loading users: {e}")
             return {}
@@ -201,28 +279,61 @@ def save_users(users: dict) -> bool:
     with _users_lock:
         try:
             os.makedirs(DATA_DIR, exist_ok=True)
-            with open(USERS_FILE, "w") as f:
-                json.dump(users, f, indent=2)
+            content_str = json.dumps(users, indent=2)
+            content_bytes = content_str.encode('utf-8')
+            with open(USERS_FILE, "wb") as f:
+                f.write(content_bytes)
+
+            from scoring_matrix import SESSION_SECRET
+            computed_hmac = _hmac.new(SESSION_SECRET, content_bytes, hashlib.sha256).hexdigest()
+            with open(USERS_HMAC_FILE, "w") as hf:
+                hf.write(computed_hmac)
             return True
         except Exception as e:
             print(f"[AUTH] Error saving users: {e}")
             return False
 
 
+
 def init_db():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
-    if not os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "w") as f:
-            json.dump({
-                "admin": {
-                    "password": _hash_password("sentinel2026"),
-                    "role": "admin",
-                    "status": "approved",
-                    "access_code": None,
-                }
-            }, f, indent=2)
-        print("[AUTH] Default admin created  (username: admin  password: sentinel2026)")
+    users = load_users()
+    if not users or "admin" not in users:
+        totp_secret = _generate_totp_secret()
+        raw_codes, hashed_codes = _generate_backup_codes(8)
+        users["admin"] = {
+            "password": _hash_password("adminpass123"),
+
+            "role": "admin",
+            "status": "approved",
+            "access_code": None,
+            "totp_secret": totp_secret,
+            "mfa_backup_codes": hashed_codes,
+        }
+        save_users(users)
+        print(
+            f"\n[AUTH] Default admin created (username: admin  password: sentinel2026)\n"
+            f"  TOTP Secret Key       : {totp_secret}\n"
+            f"  Backup Recovery Codes : {', '.join(raw_codes)}\n",
+            flush=True,
+        )
+    else:
+        admin_user = users.get("admin")
+        if admin_user and not admin_user.get("totp_secret"):
+            totp_secret = _generate_totp_secret()
+            raw_codes, hashed_codes = _generate_backup_codes(8)
+            admin_user["totp_secret"] = totp_secret
+            admin_user["mfa_backup_codes"] = hashed_codes
+            users["admin"] = admin_user
+            save_users(users)
+            print(
+                f"\n[AUTH] Initialized TOTP MFA for admin:\n"
+                f"  TOTP Secret Key       : {totp_secret}\n"
+                f"  Backup Recovery Codes : {', '.join(raw_codes)}\n",
+                flush=True,
+            )
+
 
 # ---------------------------------------------------------------------------
 # SSE -- push real-time alerts to connected admin browsers
@@ -416,15 +527,11 @@ def api_verify_otp():
 
     if is_admin:
         with _otps_lock:
-            valid = _otp_valid(username, code)
+            valid = _verify_mfa_code(username, code, user)
             if not valid:
-                entry = _active_otps.get(username)
-                if entry and time.time() - entry.get("issued_at", 0) > OTP_TTL_SECS:
-                    msg = "OTP expired. Please log in again to receive a new OTP."
-                else:
-                    msg = "Incorrect OTP."
-                return jsonify({"success": False, "message": msg}), 401
+                return jsonify({"success": False, "message": "Invalid MFA TOTP or backup recovery code."}), 401
             _active_otps.pop(username, None)
+
     else:
         expected = user.get("access_code")
         if not expected or code != expected:
@@ -511,13 +618,26 @@ def api_list_alerts():
 @app.route("/api/alerts/<incident_id>/respond", methods=["POST"])
 @_require_auth(admin_only=True)
 def api_respond_alert(incident_id: str):
-    """Admin approves or denies a High-tier threat authorization challenge."""
+    """Admin approves or denies a High-tier threat authorization challenge.
+    Enforces step-up MFA confirmation: totp_code or code is required in body.
+    """
     from notifications.sentinel_notifier import resolve_challenge
 
     data = request.json or {}
     decision = data.get("decision", "").upper().strip()
     if decision not in ("YES", "IGNORE", "DENY"):
         return jsonify({"success": False, "message": "decision must be YES, IGNORE, or DENY"}), 400
+
+    totp_code = (data.get("totp_code") or data.get("code") or "").strip()
+    admin_user = request.session.get("username", "admin")
+    users = load_users()
+    admin_data = users.get(admin_user, {})
+
+    if not totp_code or not _verify_mfa_code(admin_user, totp_code, admin_data):
+        return jsonify({
+            "success": False,
+            "message": "Step-up MFA authorization failed. Valid TOTP or backup recovery code is required.",
+        }), 401
 
     resolved = resolve_challenge(incident_id, decision)
     if not resolved:
@@ -526,11 +646,11 @@ def api_respond_alert(incident_id: str):
             "message": "Challenge not found or already resolved.",
         }), 404
 
-    admin = request.session.get("username", "unknown")
     print(
-        f"\n[SSHA AUTH] Admin '{admin}' resolved challenge {incident_id[:8]} -> {decision}\n"
+        f"\n[SSHA AUTH] Admin '{admin_user}' resolved challenge {incident_id[:8]} -> {decision} (MFA Verified)\n"
     )
     return jsonify({"success": True, "decision": decision, "incident_id": incident_id})
+
 
 
 # ---------------------------------------------------------------------------

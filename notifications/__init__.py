@@ -77,19 +77,34 @@ def _load_config() -> dict:
         return {}
 
 
+def _check_zero_cloud_guard(backend_name: str):
+    """Enforce zero-cloud policy: raise RuntimeError if Telegram or cloud backend is requested."""
+    zero_cloud = os.environ.get("SENTIHEALTH_ZERO_CLOUD", "1") == "1"
+    allow_telegram = os.environ.get("ALLOW_TELEGRAM_CLOUD", "0") == "1"
+    if zero_cloud and not allow_telegram:
+        msg = (
+            f"[ZERO-CLOUD GUARD] Refusing to initialize '{backend_name}' backend. "
+            "External cloud messaging (Telegram) is strictly prohibited under SentiHealth zero-cloud policy. "
+            "Use the 'sentinel' backend for local SSE-based notifications."
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
+
 def _build_sentinel(cfg: dict) -> "Notifier":
     from .sentinel_notifier import SentinelNotifier
-    logger.info("[Notifier] SentinelNotifier (SSHA) active — zero-cloud, self-hosted")
+    logger.info("[Notifier] SentinelNotifier (SSE) active — zero-cloud, self-hosted")
     return SentinelNotifier(cfg)
 
 
 def _build_telegram(cfg: dict) -> "Notifier":
+    _check_zero_cloud_guard("telegram")
     token = os.environ.get(cfg.get("bot_token_env", "TELEGRAM_BOT_TOKEN"), "").strip()
     chat_id = os.environ.get(cfg.get("chat_id_env", "TELEGRAM_CHAT_ID"), "").strip()
 
     if not token or not chat_id:
         logger.warning(
-            "[Notifier] Telegram credentials missing — falling back to SentinelNotifier (SSHA)"
+            "[Notifier] Telegram credentials missing — falling back to SentinelNotifier (SSE)"
         )
         return _build_sentinel({})
 
@@ -100,6 +115,7 @@ def _build_telegram(cfg: dict) -> "Notifier":
 
 def _build_dual(cfg: dict) -> "Notifier":
     """Build DualNotifier: Telegram for push alerts + SentinelNotifier for dashboard IPC."""
+    _check_zero_cloud_guard("dual")
     token = os.environ.get(cfg.get("bot_token_env", "TELEGRAM_BOT_TOKEN"), "").strip()
     chat_id = os.environ.get(cfg.get("chat_id_env", "TELEGRAM_CHAT_ID"), "").strip()
 
@@ -114,5 +130,6 @@ def _build_dual(cfg: dict) -> "Notifier":
     from .telegram import TelegramNotifier
     from .dual_notifier import DualNotifier
     telegram = TelegramNotifier(token, chat_id)
-    logger.info("[Notifier] DualNotifier active (Telegram + SSHA)")
+    logger.info("[Notifier] DualNotifier active (Telegram + SSE)")
     return DualNotifier(telegram, sentinel)
+

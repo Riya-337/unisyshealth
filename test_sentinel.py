@@ -34,30 +34,88 @@ class TestSentinel(unittest.TestCase):
         self.assertGreater(res['raw_score'], 0.7)
 
     def test_blockchain_integrity(self):
-        if os.path.exists('data/audit_chain.json'):
-            os.remove('data/audit_chain.json')
-            
-        features = {'failed_logins': 1, 'cpu_usage': 0.1, 'ehr_access_per_hour': 0, 'attack_type': 'normal', 'asset_type': 'workstation'}
-        
-        # Block 1
-        res1 = score_event(features)
-        respond(res1)
-        
-        # Block 2
-        res2 = score_event(features)
-        respond(res2)
-        
-        chain = json.load(open('data/audit_chain.json'))
-        
-        # Corrupt Block 2 (which is chain[-1] before res3)
-        chain[-1]['tier'] = 'High' 
-        with open('data/audit_chain.json', 'w') as f:
-            json.dump(chain, f)
-            
-        # Try Block 3
-        res3 = score_event(features)
-        resp = respond(res3)
-        self.assertEqual(resp.get("status"), "HALTED_CORRUPTION")
+        import tempfile
+        import self_healing_responder
+        import _paths
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_chain = os.path.join(tmpdir, "audit_chain.json")
+            tmp_replica = os.path.join(tmpdir, "audit_chain_replica.json")
+
+            with patch.object(_paths, 'AUDIT_CHAIN', tmp_chain), \
+                 patch.object(_paths, 'AUDIT_CHAIN_REPLICA', tmp_replica), \
+                 patch.object(self_healing_responder, 'AUDIT_CHAIN', tmp_chain), \
+                 patch.object(self_healing_responder, 'AUDIT_CHAIN_REPLICA', tmp_replica):
+
+                from self_healing_responder import _bootstrap_chain
+                _bootstrap_chain()
+
+                features = {'failed_logins': 1, 'cpu_usage': 0.1, 'ehr_access_per_hour': 0, 'attack_type': 'normal', 'asset_type': 'workstation'}
+                
+                # Block 1
+                res1 = score_event(features)
+                respond(res1)
+                
+                # Block 2
+                res2 = score_event(features)
+                respond(res2)
+                
+                chain = json.load(open(tmp_chain))
+                
+                # Corrupt Block 2 (which is chain[-1] before res3)
+                chain[-1]['tier'] = 'High' 
+                with open(tmp_chain, 'w') as f:
+                    json.dump(chain, f)
+                    
+                # Try Block 3
+                res3 = score_event(features)
+                resp = respond(res3)
+                self.assertEqual(resp.get("status"), "HALTED_CORRUPTION")
+
+    def test_blockchain_replication_and_manual_recovery(self):
+        import tempfile
+        import self_healing_responder
+        import _paths
+        import scripts.restore_audit_chain
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_chain = os.path.join(tmpdir, "audit_chain.json")
+            tmp_replica = os.path.join(tmpdir, "audit_chain_replica.json")
+
+            with patch.object(_paths, 'AUDIT_CHAIN', tmp_chain), \
+                 patch.object(_paths, 'AUDIT_CHAIN_REPLICA', tmp_replica), \
+                 patch.object(self_healing_responder, 'AUDIT_CHAIN', tmp_chain), \
+                 patch.object(self_healing_responder, 'AUDIT_CHAIN_REPLICA', tmp_replica), \
+                 patch.object(scripts.restore_audit_chain, 'AUDIT_CHAIN', tmp_chain), \
+                 patch.object(scripts.restore_audit_chain, 'AUDIT_CHAIN_REPLICA', tmp_replica):
+
+                from scripts.restore_audit_chain import restore_chain
+                from self_healing_responder import verify_chain_integrity
+
+                features = {'failed_logins': 1, 'cpu_usage': 0.1, 'ehr_access_per_hour': 0, 'attack_type': 'normal', 'asset_type': 'workstation'}
+                
+                # 1. Write block
+                respond(score_event(features))
+
+                # 2. Verify both primary and replica files exist
+                self.assertTrue(os.path.exists(tmp_chain))
+                self.assertTrue(os.path.exists(tmp_replica))
+
+                # 3. Delete primary -> system MUST halt with HALTED_CORRUPTION (no auto-recovery)
+                os.remove(tmp_chain)
+                self.assertFalse(verify_chain_integrity())
+                resp_after_deletion = respond(score_event(features))
+                self.assertEqual(resp_after_deletion.get("status"), "HALTED_CORRUPTION")
+
+                # 4. Manual operator recovery execution
+                restore_chain(from_replica=True, confirm=True)
+
+                # 5. Verify chain is intact after manual operator recovery
+                self.assertTrue(verify_chain_integrity())
+                resp_after_recovery = respond(score_event(features))
+                self.assertNotEqual(resp_after_recovery.get("status"), "HALTED_CORRUPTION")
+
+
 
     @patch('live_sentinel.get_notifier')
     def test_telegram_timeout_fallback(self, mock_get_notifier):

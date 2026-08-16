@@ -1,12 +1,13 @@
 {
-  "_comment": "backend: 'sentinel' (SSHA, zero-cloud) | 'telegram' (phone only) | 'dual' (both) | 'console' (tests only)",
-  "backend": "dual",
+  "_comment": "backend: 'sentinel' (SSHA/SSE, zero-cloud default) | 'console' (tests only). Note: 'telegram' / 'dual' are blocked by zero-cloud runtime guard.",
+  "backend": "sentinel",
   "sentinel": {
-    "_comment": "SentinelNotifier — self-hosted SSHA. Alerts go to server console + logs/alert_queue.jsonl and admin dashboard."
+    "_comment": "SentinelNotifier — self-hosted SSE zero-cloud. Alerts go to server console + logs/alert_queue.jsonl + SSE stream (/api/stream) for local desktop subscriber."
   },
   "telegram": {
-    "_comment": "Requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars (set in .env).",
+    "_comment": "Disabled by zero-cloud policy. Outbound calls to Telegram API are blocked.",
     "bot_token_env": "TELEGRAM_BOT_TOKEN",
     "chat_id_env": "TELEGRAM_CHAT_ID"
   }
 }
+

@@ -26,6 +26,18 @@ init(autoreset=True)
 from dotenv import load_dotenv
 load_dotenv()
 
+FEATURES = [
+    'failed_logins',
+    'cpu_usage',
+    'memory_spike',
+    'ehr_access_per_hour',
+    'lateral_movement_events',
+    'data_export_volume_kb',
+    'access_time_deviation',
+    'source_ip_reputation',
+]
+
+
 from notifications import get_notifier
 from deception.feedback import flush_mirage_labels, record_flagged_session
 

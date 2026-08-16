@@ -51,9 +51,11 @@ MIRAGE_SESSIONS  = p("logs", "mirage_sessions.json")
 # ---------------------------------------------------------------------------
 # Data files
 # ---------------------------------------------------------------------------
-AUDIT_CHAIN      = p("data", "audit_chain.json")
-APP_DB           = p("data", "app.db")
-SNAPSHOTS_DIR    = p("data", "snapshots")
+AUDIT_CHAIN          = p("data", "audit_chain.json")
+AUDIT_CHAIN_REPLICA  = p("data", "audit_chain_replica.json")
+APP_DB               = p("data", "app.db")
+SNAPSHOTS_DIR        = p("data", "snapshots")
+
 
 # ---------------------------------------------------------------------------
 # Config files

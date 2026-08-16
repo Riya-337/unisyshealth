@@ -24,10 +24,11 @@ SentiHealth monitors a live hospital EHR web server, scores every network event 
 **Problem:** Hospitals are the #1 target for ransomware and data exfiltration. Existing ML-based security tools either depend on cloud infrastructure (violating HIPAA air-gap requirements) or require constant manual human review — making them too slow for millisecond-scale intrusions.
 
 **Goals:**
-- **Detect threats in real time** from live network event logs, with no cloud dependency.
+- **Detect threats in real time** from live network event logs, with 100% zero-cloud on-premises operation.
 - **Automate tiered responses** (throttle, lockout, snapshot) proportional to threat severity.
-- **Keep humans in the loop** — High-tier threats require Telegram-based admin approval before action.
-- **Leave a tamper-proof audit trail** using a SHA-256 hash-chained ledger (same cryptographic principle as blockchain).
+- **Keep humans in the loop** — High-tier threats require TOTP MFA-authenticated admin approval before action.
+- **Deliver zero-cloud alerting** — Real-time LAN desktop notifications via `local_notifier_client.py` consuming SSE (`/api/stream`).
+- **Leave a tamper-proof audit trail** — Write-ahead dual-replicated SHA-256 hash-chained ledger (`audit_chain.json` & `audit_chain_replica.json`).
 - **Continuously improve** via a human-in-the-loop retraining queue: confirmed attacks feed directly back into the ML pipeline.
 
 ---
@@ -40,9 +41,10 @@ SentiHealth monitors a live hospital EHR web server, scores every network event 
 2. **`live_sentinel.py`** tails the log stream in real time and engineers 8 features per event (failed logins, CPU usage, data export volume, lateral movement, etc.).
 3. The **5-model ML Ensemble** scores each event and assigns a **Threat Tier** — Low, Medium, or High.
 4. The **Self-Healing Responder** executes the appropriate automated action based on tier.
-5. **High-tier events** trigger a **Telegram alert** to the admin, who must approve or reject the response before it executes (human-in-the-loop).
-6. Every action is appended to a **SHA-256 hash-chained audit ledger** (`audit_chain.json`) — entries cannot be silently deleted or tampered with.
+5. **High-tier events** trigger immediate **SSE desktop alerts** (`local_notifier_client.py`) and dashboard challenges requiring TOTP MFA-verified admin approval before high-risk execution.
+6. Every action is appended to a **write-ahead dual-replicated audit ledger** (`audit_chain.json` & `audit_chain_replica.json`) — entries cannot be silently deleted or tampered with without triggering immediate `HALTED_CORRUPTION`.
 7. Admins can flag misclassified events via a **review queue**, which feeds confirmed attacks back into the retraining pipeline to continuously improve model accuracy.
+
 
 ### Architecture Diagram
 
@@ -164,35 +166,70 @@ uipfinal/
 
 ---
 
-## Quickstart
+## Quickstart & Operator Deployment
 
-Open **4 separate terminal windows** and run in order:
+### Prerequisites & Environment Setup
+If using PostgreSQL for high-availability production storage, export your connection string before starting services:
+```bash
+export DATABASE_URL="postgresql://sentiuser:sentipass@localhost:5432/sentihealth_db"
+```
+*(If `DATABASE_URL` is omitted, SentiHealth automatically initializes the local SQLite database at `data/app.db`.)*
 
-**Terminal 1 — Install & Start EHR Server:**
+---
+
+### End-to-End Startup Sequence
+
+Open **5 separate terminal windows** and execute in order:
+
+**Terminal 1 — Database Initialization & EHR Web App:**
 ```bash
 source setup.sh
-cd webapp && node app.js
+python3 database.py          # Create schema and initialize tables
+cd webapp && node app.js    # Target EHR web application listening on port 3000
 ```
 
-**Terminal 2 — Start Live Sentinel AI:**
+**Terminal 2 — Start Live Dashboard & Admin MFA Setup:**
 ```bash
 source .venv/bin/activate
-export SENTIHEALTH_TEST_MODE=1
-python3 live_sentinel.py
+python3 dashboard.py         # Dashboard backend listening on http://localhost:5001
 ```
+> **First-Time Operator Enrollment & Password Change:**
+> 1. Open `http://localhost:5001` in your browser.
+> 2. Log in with initial bootstrap credentials (`admin` / `<INITIAL_BOOTSTRAP_PASSWORD>` — default: `adminpass123`).
+> 3. **SECURITY REQUIREMENT:** Immediately change the default admin password on first login via Account Settings.
+> 4. Scan the displayed QR code or enter the base32 secret key into Google Authenticator / Authy.
+> 5. Record the 8 emergency backup recovery codes in a secure vault.
+> 6. Submit your first 6-digit TOTP code to complete login.
 
-**Terminal 3 — Start Live Dashboard:**
+
+**Terminal 3 — Start Zero-Cloud SSE Desktop Alert Client:**
 ```bash
 source .venv/bin/activate
-python3 dashboard.py
+python3 local_notifier_client.py
 ```
-> View the real-time threat dashboard at `http://localhost:5001` in your browser.
+> Listens for high-priority threat alerts over LAN via Server-Sent Events (`/api/stream`) and presents native desktop popups to hospital operators.
 
-**Terminal 4 — Launch Cyberattack Simulation:**
+**Terminal 4 — Start Live Sentinel AI Monitoring Engine:**
+```bash
+source .venv/bin/activate
+python3 live_sentinel.py     # Tails event logs, scores events with 5-model ML ensemble
+```
+
+**Terminal 5 — Start React/Vite Frontend Dashboard UI (Optional Rich Frontend):**
+```bash
+cd frontend
+npm install                  # Install frontend dependencies if needed
+npm run dev                  # Start Vite dev server on http://localhost:8080 or port shown
+```
+
+**Terminal 6 — Launch Cyberattack Simulation (Validation):**
 ```bash
 source .venv/bin/activate
 python3 attack_scripts/exfiltration.py
 ```
+
+
+
 
 Watch the sentinel detect, classify, and respond to the live attack in real time on the dashboard.
 

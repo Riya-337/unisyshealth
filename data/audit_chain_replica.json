@@ -1,0 +1,173 @@
+[
+  {
+    "block_index": 0,
+    "entry_hash": "aeebad4a796fcc2e15dc4c6061b45ed9b373f26adfc798ca7d2d8cc58182718e",
+    "block_hmac": "1e1121fcdd755853656acf11bbdc71f2234a57fa627280828c6f20e40d1705b0"
+  },
+  {
+    "event_id": "ae90ab4c-26be-43ab-8b63-13ef6be399e8",
+    "timestamp": "2026-08-15T08:29:02.374030+00:00",
+    "tier": "Low",
+    "prev_hash": "aeebad4a796fcc2e15dc4c6061b45ed9b373f26adfc798ca7d2d8cc58182718e",
+    "actions_taken": [
+      "audit_log"
+    ],
+    "status": "LOGGED",
+    "block_index": 1,
+    "entry_hash": "9c63ee8fdc1e1ef32c77d4a17ed66da16eb3cf3ba10f3e70eaaba2c1663b09a9",
+    "block_hmac": "8581990aff2ed55ee9c789a34f274eec0e8cea10b7e160f30277eefe46e7aa2e"
+  },
+  {
+    "event_id": "8adcf6e7-eb82-47b6-8686-f1f24b4fe103",
+    "timestamp": "2026-08-15T08:29:02.557468+00:00",
+    "tier": "Low",
+    "prev_hash": "9c63ee8fdc1e1ef32c77d4a17ed66da16eb3cf3ba10f3e70eaaba2c1663b09a9",
+    "actions_taken": [
+      "audit_log"
+    ],
+    "status": "LOGGED",
+    "block_index": 2,
+    "entry_hash": "50830fd0a0ac5e7f6a88bc4de9be529db9782f191118fabed8fe430145ddf598",
+    "block_hmac": "fc9ecf43ecff17fb2091f8c99105f2c713eadd212291e1c943d97de36c963cef"
+  },
+  {
+    "event_id": "3aeaf0f8-b7ef-4935-b4b7-6cb491d519c5",
+    "timestamp": "2026-08-15T08:29:02.656205+00:00",
+    "tier": "High",
+    "prev_hash": "50830fd0a0ac5e7f6a88bc4de9be529db9782f191118fabed8fe430145ddf598",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 3,
+    "entry_hash": "43b1f27cddb1daf57936039ef0f525374567b6ddad02828e5441a292fc530537",
+    "block_hmac": "09dfe4ea2fd6ba43854b26ed1e8e2f6524fa30283d742f02e39c724dfd12c187"
+  },
+  {
+    "block_index": 4,
+    "event_id": "emergency_override_4",
+    "timestamp": "2026-08-15T08:29:03.117543+00:00",
+    "tier": "High",
+    "action": "EMERGENCY_UNBLOCK_IP_192.168.1.100",
+    "operator": "op_dr",
+    "auth_level": "unauthenticated_emergency_override",
+    "reason": "Emergency ER access",
+    "actions_taken_during_outage": "Emergency ER access",
+    "outage_post_incident": true,
+    "prev_hash": "43b1f27cddb1daf57936039ef0f525374567b6ddad02828e5441a292fc530537",
+    "block_hmac": "40dfb3530dac59d7ff15efb263a253e1ec72623c7a63c740da0f94cd84225504",
+    "entry_hash": "04947045fe23ac1a75d8520046f45c3712ef6baaadfe209021479516debd801a"
+  },
+  {
+    "block_index": 5,
+    "event_id": "mfa_recovery_5",
+    "timestamp": "2026-08-15T08:29:05.383470+00:00",
+    "tier": "High",
+    "action": "BACKUP_CODE_REDEEMED_USER_recoveryuser",
+    "prev_hash": "04947045fe23ac1a75d8520046f45c3712ef6baaadfe209021479516debd801a",
+    "block_hmac": "a485acf87666e1b790093d075a5be8a96bb0a43a6a20d0948217effb062b7517",
+    "entry_hash": "c2035738575d9fe6e9249bb58e8acb695b10e36bca58b14695ba168b91c61794"
+  },
+  {
+    "block_index": 6,
+    "event_id": "mfa_recovery_6",
+    "timestamp": "2026-08-15T08:29:05.384907+00:00",
+    "tier": "High",
+    "action": "BACKUP_CODE_REDEEMED_USER_recoveryuser",
+    "prev_hash": "c2035738575d9fe6e9249bb58e8acb695b10e36bca58b14695ba168b91c61794",
+    "block_hmac": "781b1aa48545e054a9b4aaeca5521afd92d0a29ab045458df6d6b856659cdc23",
+    "entry_hash": "90497c048b8b9bf69b98c9f94ef7a082168fd1b53d4ac4189359bfd32238c103"
+  },
+  {
+    "event_id": "8a753934-c741-4d02-a1ba-10a3d85b01ef",
+    "timestamp": "2026-08-15T08:42:02.093885+00:00",
+    "tier": "High",
+    "prev_hash": "90497c048b8b9bf69b98c9f94ef7a082168fd1b53d4ac4189359bfd32238c103",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 7,
+    "entry_hash": "990654b3228c4cb47f77046035b0c551c3a8a3989dfb5c1080ee20361c746a97",
+    "block_hmac": "014f5e283984be47a32a7c51849261e04c5afaa952cf6bf744952ea2291ce4ee"
+  },
+  {
+    "event_id": "3dbafd70-3a67-465d-b2fe-6a5813cd00d3",
+    "timestamp": "2026-08-15T08:42:50.151298+00:00",
+    "tier": "High",
+    "prev_hash": "990654b3228c4cb47f77046035b0c551c3a8a3989dfb5c1080ee20361c746a97",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 8,
+    "entry_hash": "097a3357822c3daa8b788d022fc39159d15dbd1e5dff6ec60015b62dc8395271",
+    "block_hmac": "26d1945bf7ed3312b745fccad25272012a7dcb13da421e11cae6ae41c431d77a"
+  },
+  {
+    "event_id": "400145a1-4a6e-4264-99e0-afcadcc64639",
+    "timestamp": "2026-08-15T08:43:43.576886+00:00",
+    "tier": "High",
+    "prev_hash": "097a3357822c3daa8b788d022fc39159d15dbd1e5dff6ec60015b62dc8395271",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 9,
+    "entry_hash": "b9ef9f4015c54b1a48b7b18b7804c529857dd1e8369826ac37bf9e36a6b5017c",
+    "block_hmac": "5891f8f1a51196f868deb5c5ff0558d1afec4d6e215399f96afa439290a0e8ef"
+  },
+  {
+    "event_id": "90a1e62e-11f9-4960-b2a4-28183d2bee3e",
+    "timestamp": "2026-08-15T08:45:18.552091+00:00",
+    "tier": "High",
+    "prev_hash": "b9ef9f4015c54b1a48b7b18b7804c529857dd1e8369826ac37bf9e36a6b5017c",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 10,
+    "entry_hash": "392db24100390b8a6e752be2bb78b734f13f226e3ac9984a95fdff3121a483cf",
+    "block_hmac": "7eec870fb9fb8c88a726a410670e3f455940227b167c33f374eb20b95601a5af"
+  },
+  {
+    "event_id": "f37ed421-1478-4373-94a8-3fd0db397ffb",
+    "timestamp": "2026-08-15T09:04:19.245779+00:00",
+    "tier": "High",
+    "prev_hash": "392db24100390b8a6e752be2bb78b734f13f226e3ac9984a95fdff3121a483cf",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 11,
+    "entry_hash": "4bed1e150a8fe54bdba1fec134c472590537576f2d36ead4200da876e4164533",
+    "block_hmac": "3d900b962d0706c2c42d8ba121728aa7f05a0d353757801f6aba6430df46f198"
+  },
+  {
+    "event_id": "f31cadd4-907d-4e47-9c22-6c4d828e4976",
+    "timestamp": "2026-08-15T09:14:57.594371+00:00",
+    "tier": "High",
+    "prev_hash": "4bed1e150a8fe54bdba1fec134c472590537576f2d36ead4200da876e4164533",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 12,
+    "entry_hash": "85eb1da0b7811892a0d00e3227581a85e3cf4a76774f70e71cf9368a18f85f76",
+    "block_hmac": "c79ba44685f3ee8f6786def426151d9667926be82ff67dcb8900c852f50d5a9b"
+  }
+]
