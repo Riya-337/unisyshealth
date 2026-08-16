@@ -107,7 +107,8 @@ function buildSnapshotFromEvents(
   totalBlockedIPs: number,
 ): SentinelSnapshot {
   const feed    = recent.slice(0, 20);
-  const blocked = recent.filter((e) => e.action === "auto-locked" || e.tier === "High");
+  const blocked = recent.filter((e) => e.action !== "pending");
+
 
   const tierCounts = { High: 0, Medium: 0, Low: 0, total: recent.length };
   for (const e of recent) tierCounts[e.tier]++;

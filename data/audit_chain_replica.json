@@ -214,5 +214,20 @@
     "block_index": 15,
     "entry_hash": "2ee6a211e14bf90d250d76b91280ea9068de4c4f30ebbbb48f167b43dff151de",
     "block_hmac": "9af44dc18318b36850921fe3fa365c8f1ed67f64b66970b30f265f565213fbc7"
+  },
+  {
+    "event_id": "687df2a7-5953-49db-9c18-4643471325ca",
+    "timestamp": "2026-08-16T08:54:39.124983+00:00",
+    "tier": "High",
+    "prev_hash": "2ee6a211e14bf90d250d76b91280ea9068de4c4f30ebbbb48f167b43dff151de",
+    "actions_taken": [
+      "ip_blocked",
+      "bandwidth_throttled",
+      "db_snapshotted"
+    ],
+    "status": "WAITING",
+    "block_index": 16,
+    "entry_hash": "41024ed34645d901abdc1c7b9bfe7f524ec93feb0dfa29a0036cbbc9c982abed",
+    "block_hmac": "2923c01cdf56ab2d931285502e4fab9b1bf329905057faa72d4be0620cba7833"
   }
 ]
