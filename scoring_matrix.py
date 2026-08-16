@@ -39,17 +39,21 @@ if os.path.exists(MODEL_MANIFEST):
             if sha != expected_sha:
                 raise SystemExit(f"MODEL TAMPERED: {name}")
 
-# Persistent HMAC key — survives restarts so chain signatures remain verifiable.
-# Generated once and stored; delete config/.chain_key to rotate (invalidates old chain).
-_SECRET_PATH = CHAIN_KEY_FILE
-if os.path.exists(_SECRET_PATH):
-    with open(_SECRET_PATH, 'rb') as _f:
-        SESSION_SECRET: bytes = _f.read()
-else:
-    SESSION_SECRET = os.urandom(32)
-    os.makedirs(os.path.dirname(_SECRET_PATH), exist_ok=True)
-    with open(_SECRET_PATH, 'wb') as _f:
-        _f.write(SESSION_SECRET)
+# Persistent HMAC key — managed by secrets_vault.py (0600 permission-restricted vault).
+try:
+    from secrets_vault import get_secret
+    SESSION_SECRET: bytes = get_secret("SESSION_SECRET")
+except Exception:
+    _SECRET_PATH = CHAIN_KEY_FILE
+    if os.path.exists(_SECRET_PATH):
+        with open(_SECRET_PATH, 'rb') as _f:
+            SESSION_SECRET: bytes = _f.read()
+    else:
+        SESSION_SECRET = os.urandom(32)
+        os.makedirs(os.path.dirname(_SECRET_PATH), exist_ok=True)
+        with open(_SECRET_PATH, 'wb') as _f:
+            _f.write(SESSION_SECRET)
+
 
 DAMAGE = {
     'normal': 0.1, 'brute_force': 0.4,

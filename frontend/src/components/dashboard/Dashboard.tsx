@@ -78,6 +78,8 @@ function useHighTierSSE() {
         toast.custom(
           (t) => (
             <div
+              role="alert"
+              aria-live="assertive"
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -123,30 +125,34 @@ function useHighTierSSE() {
 
               {/* deadline label */}
               <p style={{ fontSize: 11, color: "#fbbf24", margin: 0 }}>
-                ⏱ Auto-lockdown fires in {deadline}s if no response
+                ⏱ Stasis review queue placement in {deadline}s if no response
               </p>
 
               {/* YES / NO buttons */}
               <div style={{ display: "flex", gap: 8 }}>
                 <button
+                  aria-label="Approve High-Tier Threat Forensic Action"
                   onClick={() => { respondInline(data.incident_id, "YES"); toast.dismiss(t); }}
                   style={{
                     flex: 1, borderRadius: 8, background: "#16a34a",
                     color: "white", fontWeight: 700, fontSize: 12,
                     padding: "8px 0", border: "none", cursor: "pointer",
                   }}
+                  className="focus:outline-none focus:ring-2 focus:ring-green-400"
                   onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#22c55e"; }}
                   onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "#16a34a"; }}
                 >
                   ✓ YES — Approve
                 </button>
                 <button
+                  aria-label="Deny High-Tier Threat Action"
                   onClick={() => { respondInline(data.incident_id, "DENY"); toast.dismiss(t); }}
                   style={{
                     flex: 1, borderRadius: 8, background: "#b91c1c",
                     color: "white", fontWeight: 700, fontSize: 12,
                     padding: "8px 0", border: "none", cursor: "pointer",
                   }}
+                  className="focus:outline-none focus:ring-2 focus:ring-red-400"
                   onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#ef4444"; }}
                   onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "#b91c1c"; }}
                 >
@@ -156,9 +162,11 @@ function useHighTierSSE() {
 
               {/* scroll-to console link */}
               <button
+                aria-label="Scroll to Sentinel Admin Console"
                 onClick={() =>
-                  document.getElementById("ssha-auth-console")?.scrollIntoView({ behavior: "smooth" })
+                  document.getElementById("sentinel-admin-console")?.scrollIntoView({ behavior: "smooth" })
                 }
+
                 style={{
                   background: "none", border: "none", color: "rgba(255,255,255,0.45)",
                   fontSize: 10, cursor: "pointer", padding: 0, textAlign: "left",

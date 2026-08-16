@@ -185,11 +185,25 @@ For production deployments requiring multi-node database high availability:
 
 ---
 
-## 7. Scaling Model & Cross-Hospital Data Isolation
 
-> **Architectural Constraint:** Live cross-hospital network data sharing is **NOT supported** and is **NOT a goal of this architecture**.
->
-> SentiHealth scales strictly via **independent deployment**:
-> - Each hospital site operates an entirely self-contained, air-gapped deployment with its own LAN, database, sentinel engine, audit ledger, and SSE desktop alert subscribers.
-> - No live network link exists or is permitted between hospital deployment sites over the public internet.
-> - Future cross-site capabilities (Phase 8.4) will strictly use offline/federated model weight updates, never live events, telemetry, or PHI.
+---
+
+## 8. Host OS Audit Logging & On-Premises TLS CA Setup
+
+### 8.1 OS-Level Authentication & Host Audit Logging Requirements
+Any host running SentiHealth components MUST have OS-level authentication logging enabled and retained:
+1. **SSH & Local Authentication Logging:** Ensure `/var/log/auth.log` (Debian/Ubuntu) or `/var/log/secure` (RHEL/CentOS) is enabled with log retention $\ge 90$ days.
+2. **Systemd Journal Storage:** Set `Storage=persistent` in `/etc/systemd/journald.conf` to guarantee daemon log persistence across host reboots.
+3. **Log Rotation Policy:** Configure `/etc/logrotate.d/sentihealth` to preserve historical host logs with compression.
+
+### 8.2 On-Premises TLS Certificate Authority (CA) Setup & Distribution
+To enforce encrypted HTTPS connections across the local hospital LAN:
+1. **Generate Local TLS Certificates:**
+   ```bash
+   python3 scripts/generate_tls_certs.py
+   ```
+2. **Trust CA Certificate on Admin Workstations:**
+   - **macOS:** Import `config/certs/server.crt` into Keychain Access $\rightarrow$ System Keychain $\rightarrow$ Set to "Always Trust".
+   - **Windows:** Import `config/certs/server.crt` into `certmgr.msc` $\rightarrow$ Trusted Root Certification Authorities.
+   - **Linux:** Copy `config/certs/server.crt` to `/usr/local/share/ca-certificates/sentihealth.crt` and run `update-ca-certificates`.
+
