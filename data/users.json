@@ -1,15 +1,1 @@
-{
-  "admin": {
-    "password": "pbkdf2:sha256:260000:71d7e9f63f144494a6f87a1aeea20f02:dc1f15ac13a8ad9e12b14e97883bb4365a16ad5d05a2bc0eaa6648287ef24bd9",
-    "role": "admin",
-    "status": "approved",
-    "totp_secret": "HAWLWBJ4W2MJ5PTR5GNIL6DKFNW3WWD5",
-    "mfa_backup_codes": []
-  },
-  "riyaaggarwal.cs24@rvce.edu.in": {
-    "password": "pbkdf2:sha256:260000:62cf79d4b536e8867c80e4125c2fdb56:9689e7c0d9d0cc4a17eb76536545d8505191a5e969d6fd4ad4d2b94048347e59",
-    "role": "admin",
-    "status": "approved",
-    "access_code": null
-  }
-}
+{"testadmin": {"role": "admin", "tampered": true}}

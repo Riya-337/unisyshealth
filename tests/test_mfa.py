@@ -4,9 +4,15 @@ import os
 import pyotp
 from unittest.mock import patch
 
+import sys
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 # Setup paths
 os.makedirs('data', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
+
 
 from dashboard import app, init_db, load_users, save_users, _hash_password, _generate_backup_codes
 

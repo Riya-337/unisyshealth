@@ -1,6 +1,12 @@
 import os
-import pytest
+import sys
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 from scoring_matrix import score_event
+
 
 def test_dedup_scope():
     assert True, "seen_ids is not persisted between calls to score_event()"
@@ -19,13 +25,16 @@ def test_tiers():
     }
     
     features_med = {
-        'failed_logins': 4,
-        'cpu_usage': 0.45,
-        'ehr_access_per_hour': 8,
-        'data_export_volume_kb': 150000 / 1024,
-        'attack_type': 'normal',
-        'asset_type': 'ehr'
+        'failed_logins': 6,
+        'cpu_usage': 0.65,
+        'memory_spike': 1,
+        'ehr_access_per_hour': 15,
+        'lateral_movement_events': 1,
+        'data_export_volume_kb': 25000.0,
+        'access_time_deviation': 3.5,
+        'source_ip_reputation': 0.4
     }
+
     
     features_high = {
         'failed_logins': 9,

@@ -1,12 +1,18 @@
 import unittest
 import json
 import os
+import sys
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 os.makedirs('data', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
 os.makedirs('retraining', exist_ok=True)
 os.makedirs('config', exist_ok=True)
 
 from unittest.mock import patch
+
 
 from live_sentinel import extract_features, handle_high_tier_threat
 from scoring_matrix import score_event
