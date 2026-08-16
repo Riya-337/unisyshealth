@@ -467,9 +467,12 @@ type Stage = "login" | "otp" | "granted" | "suspended";function LoginPage() {
                 pushLog("INFO", "Emergency verification succeeded. Session recorded in audit chain.");
                 setStage("granted");
                 sessionStorage.setItem("auth_token", token);
+                localStorage.setItem("auth_token", token);
                 sessionStorage.setItem("is_admin", isAdmin ? "1" : "0");
+                localStorage.setItem("is_admin", isAdmin ? "1" : "0");
                 sessionStorage.setItem(SESSION_KNOWN_IP_KEY, CURRENT_IP);
-                setTimeout(() => router.navigate({ to: "/dashboard" }), 2000);
+                setTimeout(() => router.navigate({ to: "/dashboard" }), 1200);
+
               }}
               onLockout={() => {
                 appendEmergencyAudit({
