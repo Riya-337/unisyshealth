@@ -49,5 +49,6 @@ This document tracks all formal architectural decisions, security choices, and a
 ### ADR-006: Formal Decision on WebAuthn and GSM Modems
 - **Date:** 2026-08-16  
 - **Status:** Formally Closed — Accepted Limitations  
-- **WebAuthn / FIDO2:** Closed as an accepted limitation. Baseline TOTP (PBKDF2-HMAC-SHA256) + 8 hashed 64-character emergency recovery codes with TOTP step-up authorization fulfills 100% zero-cloud air-gapped MFA without client hardware token driver or browser extension dependencies.  
+- **WebAuthn / FIDO2:** Closed as an accepted limitation. Baseline TOTP (PBKDF2-HMAC-SHA256) + 8 single-use 8-digit emergency recovery codes (stored as SHA-256 hashes in `users.json`) with TOTP step-up authorization fulfills 100% zero-cloud air-gapped MFA without client hardware token driver or browser extension dependencies.  
+
 - **GSM / Cellular Modems:** Closed as an accepted limitation. LAN-based SSE desktop notifier (`local_notifier_client.py`) delivers zero-cloud instant desktop alerts without introducing hardware serial driver dependencies or cellular carrier reliability risks.

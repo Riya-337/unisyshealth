@@ -103,11 +103,26 @@ def run_health_check() -> dict:
 
 if __name__ == "__main__":
     once = "--once" in sys.argv
+    interval = 30
+    max_cycles = None
+
+    for idx, arg in enumerate(sys.argv):
+        if arg == "--interval" and idx + 1 < len(sys.argv):
+            interval = int(sys.argv[idx + 1])
+        elif arg == "--max-cycles" and idx + 1 < len(sys.argv):
+            max_cycles = int(sys.argv[idx + 1])
+
     if once:
         res = run_health_check()
         sys.exit(0 if res["overall_healthy"] else 1)
     else:
-        print("[*] Starting SentiHealth Infrastructure Health Monitor (Polling every 30s)...")
+        print(f"[*] Starting SentiHealth Infrastructure Health Monitor Daemon (Polling every {interval}s)...")
+        cycles = 0
         while True:
             run_health_check()
-            time.sleep(30)
+            cycles += 1
+            if max_cycles and cycles >= max_cycles:
+                print(f"[+] Health monitor daemon completed {cycles} check cycles cleanly.")
+                break
+            time.sleep(interval)
+
