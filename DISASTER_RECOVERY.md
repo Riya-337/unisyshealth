@@ -177,26 +177,82 @@ For production deployments requiring multi-node database high availability:
 | 4 | Audit ledger migration to Hyperledger Fabric | Single node | **Roadmap (not yet built)** | Multi-node PBFT/Raft Fabric chaincode planned for Phase 8.1. |
 | 5 | Cross-hospital Federated Learning | Single hospital | **Roadmap (not yet built)** | Differential privacy (ε-DP) weight aggregation planned for Phase 8.4. |
 | 6 | IP spoofing velocity metrics dilution | IP-based grouping | **Roadmap (not yet built)** | IPv6 + MAC switch cross-referencing planned for Phase 8.5. |
-| 7 | Outage manual override audit reliance | Human process dependency | **Operational Trust Gap** | Actions taken during total host/sentinel outages rely on manual operator post-incident logging (`--outage-log`). Full automated Article IV.2 compliance is not guaranteed until post-incident entry after system recovery. |
-| 8 | WebAuthn / FIDO2 Hardware Key Authentication | Stretch Goal | **Deferred Roadmap** | Deferring in favor of TOTP + 8 hashed emergency backup recovery codes with step-up authorization, which provides zero-cloud air-gapped MFA without client hardware token driver dependencies. WebAuthn support planned for Phase 8.2. |
-| 9 | GSM / Cellular Hardware Modem for Offline SMS | Stretch Goal | **Deferred Roadmap** | Deferring in favor of LAN-based SSE local desktop notifier (`local_notifier_client.py`), which delivers zero-cloud instant desktop popups without cellular modem hardware configuration. Serial AT-command modem integration planned for Phase 8.3. |
-
-
+| 7 | Outage manual override audit reliance | Human process dependency | **Operational Trust Gap** | Actions taken during total host/sentinel outages rely on manual operator post-incident logging (`--outage-log`). Full automated Article IV.2 compliance is not guaranteed until post-incident entry after system recovery.| 8 | WebAuthn / FIDO2 Hardware Key Authentication | Baseline MFA Active | **Formally Closed — Accepted Limitation (Not Planned)** | Formally closed as an accepted deployment limitation. Baseline TOTP (PBKDF2-HMAC-SHA256) + 8 hashed 64-character emergency recovery codes with step-up authorization provides 100% zero-cloud air-gapped multi-factor authentication without requiring client hardware token driver or browser WebAuthn extension dependencies across hospital workstations. |
+| 9 | GSM / Cellular Hardware Modem for Offline SMS | Zero-Cloud SSE Active | **Formally Closed — Accepted Limitation (Not Planned)** | Formally closed as an accepted deployment limitation. SentiHealth relies strictly on air-gapped, zero-cloud LAN Server-Sent Events (`local_notifier_client.py`) and server physical console logging. Cellular modems introduce hardware serial driver dependencies, carrier network availability risks, and SIM card management overhead that contradict 100% zero-cloud LAN isolation. |
 
 ---
 
+## 7. Scaling Model & Cross-Hospital Data Isolation
+
+> **Architectural Constraint:** Live cross-hospital network data sharing is **NOT supported** and is **NOT a goal of this architecture**.
+>
+> SentiHealth scales strictly via **independent deployment**:
+> - Each hospital site operates an entirely self-contained, air-gapped deployment with its own LAN, database, sentinel engine, audit ledger, and SSE desktop alert subscribers.
+> - No live network link exists or is permitted between hospital deployment sites over the public internet.
 
 ---
 
-## 8. Host OS Audit Logging & On-Premises TLS CA Setup
+## 8. Host OS Audit Logging, Disk Capacity & On-Premises TLS Setup
 
-### 8.1 OS-Level Authentication & Host Audit Logging Requirements
-Any host running SentiHealth components MUST have OS-level authentication logging enabled and retained:
-1. **SSH & Local Authentication Logging:** Ensure `/var/log/auth.log` (Debian/Ubuntu) or `/var/log/secure` (RHEL/CentOS) is enabled with log retention $\ge 90$ days.
-2. **Systemd Journal Storage:** Set `Storage=persistent` in `/etc/systemd/journald.conf` to guarantee daemon log persistence across host reboots.
-3. **Log Rotation Policy:** Configure `/etc/logrotate.d/sentihealth` to preserve historical host logs with compression.
+### 8.1 OS-Level Authentication & Host Audit Logging Runbook
+Any host running SentiHealth components MUST have OS-level authentication logging enabled and retained for at least 90 days.
 
-### 8.2 On-Premises TLS Certificate Authority (CA) Setup & Distribution
+#### Step 1: Enable & Verify Authentication Logging
+- **Debian / Ubuntu Host:**
+  ```bash
+  sudo systemctl enable --now rsyslog
+  sudo ls -l /var/log/auth.log
+  ```
+- **RHEL / CentOS / Rocky Linux Host:**
+  ```bash
+  sudo systemctl enable --now rsyslog
+  sudo ls -l /var/log/secure
+  ```
+
+#### Step 2: Configure Systemd Journal Persistence
+Edit `/etc/systemd/journald.conf` to set:
+```ini
+[Journal]
+Storage=persistent
+MaxRetentionSec=90day
+SystemMaxUse=5G
+```
+Apply journal configuration:
+```bash
+sudo systemctl restart systemd-journald
+```
+
+#### Step 3: Configure Logrotate Policy for SentiHealth
+Create `/etc/logrotate.d/sentihealth`:
+```text
+/opt/sentihealth/logs/*.log /opt/sentihealth/logs/*.jsonl {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 sentinel sentinel
+}
+```
+
+---
+
+### 8.2 Disk Capacity Planning & Vacuum Maintenance
+- **Minimum Disk Space Requirement:** 50 GB dedicated storage on `/opt/sentihealth`.
+- **Disk Usage Verification Command:**
+  ```bash
+  df -h /opt/sentihealth
+  ```
+- **Automated Vacuum Command (Run when disk usage > 85%):**
+  ```bash
+  # Retain 90 days of systemd journal logs
+  sudo journalctl --vacuum-time=90d
+  ```
+
+---
+
+### 8.3 On-Premises TLS Certificate Authority (CA) Setup & Distribution
 To enforce encrypted HTTPS connections across the local hospital LAN:
 1. **Generate Local TLS Certificates:**
    ```bash
@@ -205,5 +261,6 @@ To enforce encrypted HTTPS connections across the local hospital LAN:
 2. **Trust CA Certificate on Admin Workstations:**
    - **macOS:** Import `config/certs/server.crt` into Keychain Access $\rightarrow$ System Keychain $\rightarrow$ Set to "Always Trust".
    - **Windows:** Import `config/certs/server.crt` into `certmgr.msc` $\rightarrow$ Trusted Root Certification Authorities.
-   - **Linux:** Copy `config/certs/server.crt` to `/usr/local/share/ca-certificates/sentihealth.crt` and run `update-ca-certificates`.
+   - **Linux:** Copy `config/certs/server.crt` to `/usr/local/share/ca-certificates/sentihealth.crt` and run `sudo update-ca-certificates`.
+s`.
 

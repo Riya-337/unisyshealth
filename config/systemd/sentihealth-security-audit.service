@@ -1,0 +1,14 @@
+[Unit]
+Description=SentiHealth Weekly Security Dependency Audit Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=sentinel
+WorkingDirectory=/opt/sentihealth
+ExecStart=/bin/bash /opt/sentihealth/scripts/security_audit_cron.sh
+StandardOutput=append:/opt/sentihealth/logs/security_audit.log
+StandardError=append:/opt/sentihealth/logs/security_audit.log
+
+[Install]
+WantedBy=multi-user.target
