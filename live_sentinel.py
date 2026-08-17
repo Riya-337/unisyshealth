@@ -489,8 +489,9 @@ def run_live_sentinel():
 
             if event.get('is_precomputed_feature'):
                 if not TEST_MODE:
-                    logger.warning("SECURITY: is_precomputed_feature outside test mode. Discarding.")
+                    logger.warning("SECURITY: is_precomputed_feature outside test mode. Discarding attack script test event. (Run with: SENTIHEALTH_TEST_MODE=1 python3 live_sentinel.py)")
                     continue
+
             if not features:
                 continue
 
