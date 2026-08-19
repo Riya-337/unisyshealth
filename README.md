@@ -146,22 +146,39 @@ All models use **`CalibratedClassifierCV` with isotonic regression** (5-fold) to
 ## Repository Layout
 
 ```
-uipfinal/
+unisyshealth/
 ├── webapp/                  # Node.js EHR server (attack target)
+├── frontend/                # React/Vite/TypeScript admin dashboard UI
+├── deception/               # Mirage honeypot & deception layer (imported by live_sentinel)
+├── notifications/           # Alert dispatch — Telegram, console, dual-notifier, SMTP
+├── privacy/                 # HIPAA-aligned pseudonymisation and crypto-shredding
+├── attack_scripts/          # Cyberattack simulators (exfiltration, brute-force, port scan)
+├── config/                  # Runtime config: thresholds, notifier, deception policy, TLS certs
+├── data/                    # Synthetic EHR dataset, audit chain, user DB
+├── models/                  # Serialized calibrated model files + SHA-256 manifest
+├── evaluation/              # Model evaluation scripts and metrics
+├── demos/                   # Standalone demo scripts (crypto-shred, pseudonymize, scenario)
+├── scripts/                 # Operational scripts + shell launchers (setup.sh, reset_and_run.sh)
+├── tests/                   # Pytest suite (sentinel, tiers, MFA, rate-limit, DB backup)
+├── docs/                    # All project documentation
+│   ├── AGENTS.md            # Agent onboarding instructions (read first)
+│   ├── DISASTER_RECOVERY.md # Operational disaster-recovery runbook
+│   ├── FUTURE_WORK.md       # Known limitations and planned enhancements
+│   ├── MODEL_METRICS.md     # Ensemble performance metrics and evaluation methodology
+│   ├── DECISION_RECORD.md   # Architecture decision log
+│   ├── constitution.md      # Project constitution and design principles
+│   ├── trd.md               # Technical requirements document
+│   ├── CONTRIBUTING.md      # Contributor guide
+│   └── ...                  # Additional design and demo docs
 ├── live_sentinel.py         # Core log-tailing sentinel with feature engineering
 ├── model_trainer.py         # 5-model ensemble training with calibration + poison guard
 ├── self_healing_responder.py# Tiered automated response engine
 ├── scoring_matrix.py        # Threat scoring and tier classification logic
 ├── dashboard.py             # Real-time Flask dashboard (localhost:5001)
 ├── review_queue.py          # Human-in-the-loop retraining queue
-├── attack_scripts/          # Cyberattack simulators (exfiltration, brute-force, port scan)
-├── data/                    # Synthetic EHR network event dataset
-├── models/                  # Serialized calibrated model files + SHA-256 manifest
-├── logs/                    # Audit chain, SHAP charts, calibration curves
-├── notifications/           # Telegram Bot alerting module
-├── privacy/                 # HIPAA-aligned data pseudonymisation and crypto-shredding demos
-├── MODEL_METRICS.md         # Ensemble performance metrics and evaluation methodology
-└── FUTURE_WORK.md           # Known limitations and planned enhancements
+├── _paths.py                # Single source of truth for all filesystem paths
+├── requirements.txt
+└── LICENSE
 ```
 
 ---
@@ -183,7 +200,7 @@ Open **5 separate terminal windows** and execute in order:
 
 **Terminal 1 — Database Initialization & EHR Web App:**
 ```bash
-source setup.sh
+source scripts/setup.sh
 python3 database.py          # Create schema and initialize tables
 cd webapp && node app.js    # Target EHR web application listening on port 3000
 ```
@@ -263,7 +280,7 @@ Watch the sentinel detect, classify, and respond to the live attack in real time
 | 5 | Mock Node.js server, not a real EHR | **HL7 FHIR** integration (Epic, Cerner) |
 | 6 | Review queue vulnerable to admin-level model poisoning | Adversarial robustness checks in retraining pipeline |
 
-See [`FUTURE_WORK.md`](FUTURE_WORK.md) for detailed discussion of each limitation.
+See [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md) for detailed discussion of each limitation.
 
 ---
 
