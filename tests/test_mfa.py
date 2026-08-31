@@ -21,6 +21,7 @@ os.makedirs('logs', exist_ok=True)
 
 from dashboard import app, init_db, load_users, save_users, _hash_password, _generate_backup_codes
 
+@unittest.skipUnless(HAS_PYOTP, "pyotp is not installed")
 class TestMFA(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
