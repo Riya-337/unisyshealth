@@ -20,7 +20,7 @@ import sys
 PROJECT_ROOT: str = os.path.dirname(os.path.abspath(__file__))
 
 # Auto-add sub-packages to sys.path
-for sub in ["core", "ml", "security", "privacy", "deception", "retraining"]:
+for sub in ["core", "ml", "security", "api", "privacy", "deception", "retraining"]:
     sub_path = os.path.join(PROJECT_ROOT, sub)
     if os.path.exists(sub_path) and sub_path not in sys.path:
         sys.path.insert(0, sub_path)
