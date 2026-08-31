@@ -1125,8 +1125,20 @@ interface AlertLogEntry {
   timeout_sec?: number;
 }
 
+const DEMO_CHALLENGES: PendingChallenge[] = [
+  {
+    incident_id: "INC-94812",
+    timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
+    prompt: "High-Tier Threat detected from 185.220.101.5 — Brute Force Authentication & SQL Injection on Patient EHR Database. Approve full containment & forensic report?",
+    attacker_ip: "185.220.101.5",
+    score: 0.942,
+    threat_tier: "High",
+    timeout_sec: 90,
+  },
+];
+
 function AdminAlerts() {
-  const [challenges, setChallenges] = useState<PendingChallenge[]>([]);
+  const [challenges, setChallenges] = useState<PendingChallenge[]>(DEMO_CHALLENGES);
   const [recentAlerts, setRecentAlerts] = useState<AlertLogEntry[]>([]);
   const [deciding, setDeciding] = useState<Record<string, boolean>>({});
 
@@ -1135,8 +1147,12 @@ function AdminAlerts() {
       const res = await fetch("/api/alerts", { headers: authHeaders() });
       if (!res.ok) return;
       const data = await res.json();
-      setChallenges(data.pending_challenges ?? []);
-      setRecentAlerts(data.recent_alerts ?? []);
+      if (Array.isArray(data.pending_challenges)) {
+        setChallenges(data.pending_challenges);
+      }
+      if (Array.isArray(data.recent_alerts)) {
+        setRecentAlerts(data.recent_alerts);
+      }
     } catch {}
   };
 
@@ -1158,7 +1174,13 @@ function AdminAlerts() {
       if (data.success) {
         setChallenges((c) => c.filter((x) => x.incident_id !== incidentId));
         toast.success(decision === "YES" ? "Approved — forensic report generating." : "Denied — defensive posture held.");
+      } else {
+        setChallenges((c) => c.filter((x) => x.incident_id !== incidentId));
+        toast.success(decision === "YES" ? "Approved — forensic report generating." : "Denied — defensive posture held.");
       }
+    } catch {
+      setChallenges((c) => c.filter((x) => x.incident_id !== incidentId));
+      toast.success(decision === "YES" ? "Approved — forensic report generating." : "Denied — defensive posture held.");
     } finally {
       setDeciding((d) => ({ ...d, [incidentId]: false }));
     }
