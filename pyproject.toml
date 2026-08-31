@@ -1,2 +1,15 @@
+[project]
+name = "unisyshealth"
+version = "0.1.0"
+description = "UnisysHealth Hospital Security Platform"
+dependencies = [
+    "flask",
+    "flask-cors",
+    "cryptography",
+    "scikit-learn",
+    "numpy",
+    "pandas"
+]
+
 [tool.vercel]
 entrypoint = "dashboard:app"
