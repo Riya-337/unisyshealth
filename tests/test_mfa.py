@@ -1,7 +1,12 @@
 import unittest
 import json
 import os
-import pyotp
+try:
+    import pyotp
+    HAS_PYOTP = True
+except ImportError:
+    HAS_PYOTP = False
+    pyotp = None
 from unittest.mock import patch
 
 import sys
