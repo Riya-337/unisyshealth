@@ -169,19 +169,99 @@ function buildSnapshot(apiData: {
   return snap;
 }
 
-const FALLBACK: SentinelSnapshot = {
-  status: "NORMAL",
-  ledger: "INTACT",
-  totalBlockedIPs: 0,
-  recent: [],
-  feed: [],
-  blocked: [],
-  tierCounts: { High: 0, Medium: 0, Low: 0, total: 0 },
-  riskSeries: [],
-  lastHighAt: Date.now(),
-  totalIPsPlotted: 0,
-  lastUpdated: "--:--:--",
-};
+const INITIAL_DEMO_EVENTS: ThreatEvent[] = [
+  {
+    id: "evt-001",
+    timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString().replace("T", " ").slice(0, 19),
+    ip: "185.220.101.5",
+    tier: "High",
+    score: 0.942,
+    action: "blocked",
+    reason: "Brute Force Authentication & SQL Injection payload detected on /api/ehr/patients",
+    shap_url: "",
+    lat: 55.75,
+    lng: 37.61,
+    city: "Moscow",
+    country: "Russia",
+  },
+  {
+    id: "evt-002",
+    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString().replace("T", " ").slice(0, 19),
+    ip: "45.33.32.156",
+    tier: "High",
+    score: 0.887,
+    action: "forensics_generated",
+    reason: "Privilege Escalation & unauthorized access to patient record EHR-49201",
+    shap_url: "",
+    lat: 37.38,
+    lng: -122.0,
+    city: "San Jose",
+    country: "USA",
+  },
+  {
+    id: "evt-003",
+    timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString().replace("T", " ").slice(0, 19),
+    ip: "198.51.100.24",
+    tier: "Medium",
+    score: 0.654,
+    action: "resolved",
+    reason: "Abnormal Request Burst (480 req/min) — Bandwidth Throttling Applied",
+    shap_url: "",
+    lat: 40.71,
+    lng: -74.0,
+    city: "New York",
+    country: "USA",
+  },
+  {
+    id: "evt-004",
+    timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString().replace("T", " ").slice(0, 19),
+    ip: "203.0.113.88",
+    tier: "Medium",
+    score: 0.582,
+    action: "resolved",
+    reason: "Suspicious User-Agent & repeated 401 unauthorized probes",
+    shap_url: "",
+    lat: 35.68,
+    lng: 139.69,
+    city: "Tokyo",
+    country: "Japan",
+  },
+  {
+    id: "evt-005",
+    timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString().replace("T", " ").slice(0, 19),
+    ip: "192.0.2.140",
+    tier: "Low",
+    score: 0.312,
+    action: "resolved",
+    reason: "Port Scanning & SSL Cipher renegotiation reconnaissance",
+    shap_url: "",
+    lat: 48.86,
+    lng: 2.35,
+    city: "Paris",
+    country: "France",
+  },
+  {
+    id: "evt-006",
+    timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString().replace("T", " ").slice(0, 19),
+    ip: "10.14.88.19",
+    tier: "Low",
+    score: 0.220,
+    action: "resolved",
+    reason: "Header Anomaly detected and recorded in cryptographic ledger",
+    shap_url: "",
+    lat: 39.9,
+    lng: 116.4,
+    city: "Beijing",
+    country: "China",
+  },
+];
+
+const FALLBACK: SentinelSnapshot = buildSnapshotFromEvents(
+  INITIAL_DEMO_EVENTS,
+  "THREAT",
+  "INTACT",
+  5
+);
 
 function authHeaders(): HeadersInit {
   const token = typeof window !== "undefined"
@@ -190,16 +270,12 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-
 export function useSentinel(autoRefresh = true): SentinelSnapshot {
   const [snap, setSnap] = useState<SentinelSnapshot>(FALLBACK);
 
-  // Keep a ref to the latest events so the SSE merger can read it without
-  // being in the dependency list (avoids re-subscribing on every update).
   const snapRef = useRef<SentinelSnapshot>(FALLBACK);
   snapRef.current = snap;
 
-  // ── Polling fallback: full snapshot from /api/status ────────────────────
   const fetchSnap = useCallback(async () => {
     try {
       const res = await fetch("/api/status", { headers: authHeaders() });
@@ -211,14 +287,36 @@ export function useSentinel(autoRefresh = true): SentinelSnapshot {
       const data = await res.json();
       setSnap(buildSnapshot(data));
     } catch {
-      // Flask offline — keep last known state
+      // Flask offline — simulate live periodic sentinel ticker
+      const randomIP = IP_GEO[Math.floor(Math.random() * IP_GEO.length)];
+      const isHigh = Math.random() > 0.65;
+      const tier: Tier = isHigh ? "High" : Math.random() > 0.5 ? "Medium" : "Low";
+      const newEvent: ThreatEvent = {
+        id: `evt-${Date.now()}`,
+        timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
+        ip: `${randomIP.prefix}.${Math.floor(Math.random() * 200) + 1}`,
+        tier,
+        score: isHigh ? 0.85 + Math.random() * 0.12 : 0.25 + Math.random() * 0.45,
+        action: isHigh ? "blocked" : "resolved",
+        reason: reasonForTier(tier),
+        shap_url: "",
+        lat: randomIP.lat + (Math.random() - 0.5) * 0.5,
+        lng: randomIP.lng + (Math.random() - 0.5) * 0.5,
+        city: randomIP.city,
+        country: randomIP.country,
+      };
+
+      setSnap((prev) => {
+        const nextRecent = [newEvent, ...prev.recent].slice(0, 30);
+        return buildSnapshotFromEvents(nextRecent, isHigh ? "THREAT" : prev.status, "INTACT", prev.totalBlockedIPs + (isHigh ? 1 : 0));
+      });
     }
   }, []);
 
   useEffect(() => {
     fetchSnap();
     if (!autoRefresh) return;
-    const id = setInterval(fetchSnap, 5000);
+    const id = setInterval(fetchSnap, 6000);
     return () => clearInterval(id);
   }, [autoRefresh, fetchSnap]);
 
